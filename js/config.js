@@ -6,7 +6,7 @@
    ========================================================== */
 
 const CONFIG = {
-  version: 'v0.9.1',
+  version: 'v0.9.2',
 
   // ---------- Partido ----------
   partido: {
@@ -30,8 +30,9 @@ const CONFIG = {
     aparicionAzul: { x: -8, z: 0 },
     aparicionRojo: { x: 8, z: 0 },
     // Dónde empieza cada integrante (el primero del azul eres tú)
-    aparicionesAzul: [{ x: -8, z: 0 }, { x: -9.5, z: -4 }, { x: -9.5, z: 4 }],
-    aparicionesRojo: [{ x: 8, z: 0 }, { x: 9.5, z: -4 }, { x: 9.5, z: 4 }]
+    // (los de los lados van detrás de las barreras: antes quedaban DENTRO de ellas)
+    aparicionesAzul: [{ x: -8, z: 0 }, { x: -10.4, z: -4 }, { x: -10.4, z: 4 }],
+    aparicionesRojo: [{ x: 8, z: 0 }, { x: 10.4, z: -4 }, { x: 10.4, z: 4 }]
   },
 
   // ---------- Obstáculos (cajas y barreras) ----------

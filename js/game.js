@@ -319,6 +319,7 @@
     jugador.personaje = id;
     const s = CONFIG.personajes[id];
     jugador.vidaMax = jugador.vida = s.vida;
+    jugador.nombre = Personajes.info[id].nombre; // antes se quedaba siempre en Nova
     combate.cambiarMalla(jugador, Personajes.crearModelo(id, COL.azul));
     jugador.barra.querySelector('.nombre').textContent = Personajes.info[id].nombre;
     prepararIndicador(s.ataque);
@@ -796,6 +797,7 @@
         jugador.pos.z = e.pos.z + (ez / d) * min;
       }
     }
+    resolverColisiones(jugador.pos, J.radio); // los obstáculos mandan
 
     // Mirar hacia la mira
     const mx = puntoMira.x - jugador.pos.x;
@@ -836,12 +838,20 @@
   function resolverColisiones(pos, radio, vel = null, rebote = 0, altura = 0) {
     for (const o of CONFIG.obstaculos) {
       if (altura - radio > o.h) continue; // va por encima del obstáculo
-      const nx = Math.max(o.x - o.w / 2, Math.min(pos.x, o.x + o.w / 2));
-      const nz = Math.max(o.z - o.d / 2, Math.min(pos.z, o.z + o.d / 2));
+      let nx = Math.max(o.x - o.w / 2, Math.min(pos.x, o.x + o.w / 2));
+      let nz = Math.max(o.z - o.d / 2, Math.min(pos.z, o.z + o.d / 2));
       let dx = pos.x - nx, dz = pos.z - nz;
       let dist = Math.hypot(dx, dz);
       if (dist < radio) {
-        if (dist < 0.0001) { dx = pos.x < o.x ? -1 : 1; dz = 0; dist = 1; }
+        if (dist < 0.0001) {
+          // El centro quedó DENTRO de la caja (por ejemplo, tras un impulso rápido):
+          // sale por el lado más cercano. Antes solo se movía un poco y podía quedarse adentro.
+          const faltaX = o.w / 2 - Math.abs(pos.x - o.x);
+          const faltaZ = o.d / 2 - Math.abs(pos.z - o.z);
+          if (faltaX < faltaZ) { dx = pos.x < o.x ? -1 : 1; dz = 0; nx = o.x + dx * (o.w / 2); }
+          else { dx = 0; dz = pos.z < o.z ? -1 : 1; nz = o.z + dz * (o.d / 2); }
+          dist = 1;
+        }
         const ux = dx / dist, uz = dz / dist;
         pos.x = nx + ux * radio;
         pos.z = nz + uz * radio;
@@ -2327,6 +2337,12 @@
     while (diff < -Math.PI) diff += Math.PI * 2;
     return actual + diff * Math.min(1, k);
   }
+
+  // Para pruebas automáticas (no afecta el juego)
+  window.__juego = {
+    get estado() { return estado; }, get mapa() { return mapa; }, get modoFiesta() { return modoFiesta; },
+    partido, balon, jugador, combate, bots, poderes, aros
+  };
 
   bucle();
 })();

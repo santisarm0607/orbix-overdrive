@@ -523,6 +523,7 @@ function crearFiesta(ctx) {
         h.pos.z = e.pos.z + (ez / d) * min;
       }
     }
+    ctx.resolverColisiones(h.pos, J.radio); // los obstáculos mandan
     // Mira hacia donde apunta; si no apunta, hacia donde camina
     const ap = !viejo && (j.input.sp || (j.input.ap && !j.input.ap.c ? j.input.ap : null));
     if (ap) h.dir.set(ap.x, 0, ap.z).normalize();

@@ -337,6 +337,8 @@ function crearBots(ctx) {
         b.pos.z = e.pos.z + (ez / ed) * min;
       }
     }
+    // Al separarse de otro personaje no puede quedar dentro de una caja
+    resolverColisiones(b.pos, 0.55);
   }
 
   // ==========================================================

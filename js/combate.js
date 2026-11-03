@@ -510,7 +510,10 @@ function crearCombate(ctx) {
     if (d < 0.01) { dx = ent.dir.x; dz = ent.dir.z; d = 1; }
     dx /= d; dz /= d;
     const dist = Math.min(d, su.alcance || 0);
-    const destX = ent.pos.x + dx * dist, destZ = ent.pos.z + dz * dist;
+    // El destino siempre queda dentro de la cancha (antes Kraag podía saltar por encima del borde)
+    const CA = CONFIG.cancha;
+    const destX = Math.max(-CA.mitadLargo + 0.6, Math.min(CA.mitadLargo - 0.6, ent.pos.x + dx * dist));
+    const destZ = Math.max(-CA.mitadAncho + 0.6, Math.min(CA.mitadAncho - 0.6, ent.pos.z + dz * dist));
     const color = ent.equipo === 'azul' ? 0x7fe0ff : 0xff6a6a;
 
     if (su.tipo === 'rafaga') {
