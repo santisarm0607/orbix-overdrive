@@ -205,7 +205,7 @@ button.mini { padding: 4px 8px; font-size: 16px; min-width: 0; border-color: rgb
   position: absolute;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
-  width: 270px; height: 250px;
+  width: 270px; height: 200px;
 }
 #stick-ataque {
   right: 0; bottom: 0; width: 146px; height: 146px;
@@ -227,7 +227,7 @@ button.mini { padding: 4px 8px; font-size: 16px; min-width: 0; border-color: rgb
   touch-action: none;
 }
 .btn:active { background: rgba(122, 240, 255, 0.35); }
-.btn.impulso { right: 160px; bottom: 4px; }
+.btn.impulso { right: 166px; bottom: 10px; }
 .btn.impulso.listo { border-color: var(--neon); box-shadow: 0 0 12px rgba(122, 240, 255, 0.6); }
 .btn .cd {
   position: absolute; inset: 0; border-radius: 50%;
@@ -235,9 +235,8 @@ button.mini { padding: 4px 8px; font-size: 16px; min-width: 0; border-color: rgb
   font-size: 22px; font-weight: 900; background: rgba(14, 9, 38, 0.6);
 }
 .btn .cd:empty { display: none; }
-.btn.pase { right: 148px; bottom: 86px; }
 .btn.super {
-  right: 70px; bottom: 160px; width: 74px; height: 74px;
+  right: 150px; bottom: 104px; width: 78px; height: 78px;
   --carga: 0;
   color: var(--dorado);
   border-color: rgba(255, 210, 63, 0.6);
