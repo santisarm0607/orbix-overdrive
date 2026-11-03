@@ -364,6 +364,19 @@ Idea de SantiSarm: los personajes no hacían ningún movimiento al atacar ("el m
 
 ---
 
+## v0.9.1 — Control más simple y mejor puntería en la TV (3 nov 2026)
+Correcciones de SantiSarm después de probar con una amiga:
+- **Se quitó el botón PASE/ROBO** del celular (cambiaba de nombre y sobraba). Ahora todo va en el stick naranja:
+  - **Pase:** con el balón, apunta a un compañero y suelta (el arco se pone **verde**). Un toque rápido también le pasa al compañero que tengas al frente.
+  - **Robo:** sin balón, ataca pegado al rival que tiene el balón y se lo quitas.
+- **La puntería en la pantalla se ve como en el modo de un jugador:**
+  - Con balón: un arco de **bolitas** que avanzan hacia donde va el tiro, mira a la altura del aro y sombra en el piso. Colores: blanco = 2 puntos, dorado = triple, gris = no va al aro, verde = pase.
+  - Sin balón: la forma real del ataque de tu personaje (cono de Kraag, línea de Nova, área de Meteor…) en tu color.
+  - Súper: la zona en dorado.
+- El celular quedó con 3 cosas a la derecha: stick naranja, Súper e Impulso.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -383,4 +396,5 @@ Idea de SantiSarm: los personajes no hacían ningún movimiento al atacar ("el m
 - [x] **v0.7.1** — Correcciones: vista previa del personaje y lugar de salida.
 - [x] **v0.8** — Animaciones de ataque, súper y lanzamiento para los 6 personajes.
 - [x] **v0.9** — **Modo Fiesta**: una pantalla y hasta 6 celulares como control (QR, equipos, bots opcionales, vibración).
+- [x] **v0.9.1** — Sin botón Pase/Robo en el celular, puntería visible en la TV.
 - [ ] **Futuro** — Online cada uno en su propio dispositivo, Rival League.

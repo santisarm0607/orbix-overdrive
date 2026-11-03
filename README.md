@@ -17,7 +17,7 @@ Juego web 3D de baloncesto galáctico **3 contra 3**, inspirado en el modo Brawl
 1. Abre el juego en el computador o TV y toca **MODO FIESTA**.
 2. Cada persona escanea el **código QR** con su celular (hasta 6).
 3. En el celular: nombre, equipo, personaje y **¡LISTO!**. El primero en entrar (👑) elige el mapa y si hay bots.
-4. El celular es el control: stick para moverse, stick naranja para atacar o lanzar, y botones de Súper, Pase/Robo e Impulso. Muestra tu vida y tu súper, y **vibra** cuando te golpean.
+4. El celular es el control: stick para moverse, stick naranja para atacar, lanzar o pasar (apunta a un compañero), y botones de Súper e Impulso. Para robar, ataca pegado al que tiene el balón. Muestra tu vida y tu súper, y **vibra** cuando te golpean.
 
 > Necesita internet y funciona desde la página publicada en GitHub Pages: https://santisarm0607.github.io/orbix-overdrive/
 
@@ -70,4 +70,4 @@ NOTAS.md          historial de versiones y decisiones
 ## Tecnologías
 HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · PeerJS (WebRTC) · qrcode.js · Web Audio API · localStorage
 
-Versión actual: **v0.9** — más detalles en [NOTAS.md](NOTAS.md).
+Versión actual: **v0.9.1** — más detalles en [NOTAS.md](NOTAS.md).
