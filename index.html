@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ORBIX: Overdrive</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%80%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Aquí se dibuja el juego 3D -->
+  <div id="juego"></div>
+
+  <!-- Barras de vida y números de daño (se dibujan sobre el 3D) -->
+  <div id="capa-barras"></div>
+  <div id="capa-numeros"></div>
+
+  <!-- ===================== HUD (durante el partido) ===================== -->
+  <div id="hud">
+    <div id="marcador">
+      <div class="equipo azul"><span class="nombre">AZUL</span><span id="marcador-azul">0</span></div>
+      <div id="centro-marcador">
+        <span id="reloj">2:30</span>
+        <span id="etiqueta-prorroga">PRÓRROGA</span>
+        <span id="meta-puntos">PRIMERO A 11</span>
+      </div>
+      <div class="equipo rojo"><span id="marcador-rojo">0</span><span class="nombre">ROJO</span></div>
+    </div>
+
+    <div id="zona-tiro">ZONA DE 2</div>
+
+    <div id="panel-accion">
+      <div id="pista-accion"></div>
+      <div id="barra-impulso"><div id="barra-impulso-relleno"></div></div>
+      <div id="texto-impulso"></div>
+      <div id="panel-super">
+        <div id="barra-super"><div id="barra-super-relleno"></div></div>
+        <span id="texto-super"></span>
+      </div>
+    </div>
+
+    <div id="pista-temporal"></div>
+
+    <!-- Poderes activos del jugador -->
+    <div id="buffs"></div>
+
+    <!-- Cuenta regresiva cuando te eliminan -->
+    <div id="reaparicion">
+      <span>Reapareces en</span>
+      <b id="reaparicion-num">3</b>
+    </div>
+  </div>
+
+  <!-- ===================== CONTROLES TÁCTILES (celular) ===================== -->
+  <div id="tactil">
+    <div id="zona-mover">
+      <div id="stick-mover" class="stick"><div id="perilla-mover" class="perilla"></div></div>
+    </div>
+    <button id="btn-pausa" class="btn-tactil" aria-label="Pausa">II</button>
+    <button id="btn-pantalla" class="btn-tactil btn-pantalla-completa" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div id="grupo-derecho">
+      <button id="btn-super" class="btn-tactil" aria-label="Súper">SÚPER</button>
+      <button id="btn-pase" class="btn-tactil" aria-label="Pase o robo">PASE<br>ROBO</button>
+      <button id="btn-impulso" class="btn-tactil" aria-label="Impulso">IMPULSO<span id="cd-impulso" class="cd"></span></button>
+      <div id="stick-ataque" class="stick fijo"><div id="perilla-ataque" class="perilla">🏀</div></div>
+    </div>
+  </div>
+
+  <!-- Aviso para girar el celular -->
+  <div id="aviso-girar">
+    <div class="icono-girar">📱</div>
+    <p>ORBIX se juega en <b>horizontal</b>.<br>Gira el celular para continuar.</p>
+    <button data-accion="pantalla-completa" class="btn-pantalla-completa btn-discreto"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Pantalla completa</button>
+  </div>
+
+  <!-- Avisos grandes (+2, +3, prórroga...) -->
+  <div id="aviso">
+    <div id="aviso-titulo"></div>
+    <div id="aviso-sub"></div>
+  </div>
+
+  <!-- Aviso de logro -->
+  <div id="logro-toast"></div>
+
+  <!-- Botón discreto de pantalla completa (esquina) -->
+  <button id="btn-pantalla-esquina" data-accion="pantalla-completa" class="btn-pantalla-completa" aria-label="Pantalla completa" title="Pantalla completa (F)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+
+  <!-- ===================== PANTALLA DE TÍTULO ===================== -->
+  <div id="pantalla-titulo" class="pantalla activa">
+    <div class="panel titulo">
+      <h1 class="logo">ORBIX<span>OVERDRIVE</span></h1>
+      <p class="lema">Baloncesto galáctico 3 vs 3</p>
+      <div class="botones">
+        <button data-accion="jugar" class="principal">JUGAR</button>
+        <button data-accion="controles">CONTROLES</button>
+        <button data-accion="logros">LOGROS</button>
+        <button data-accion="creditos">CRÉDITOS</button>
+        <button data-accion="ajustes">AJUSTES</button>
+      </div>
+      <p class="version">Versión <span id="version"></span></p>
+    </div>
+  </div>
+
+  <!-- ===================== ELEGIR PERSONAJE ===================== -->
+  <div id="pantalla-personajes" class="pantalla">
+    <div class="panel panel-personajes">
+      <h2>ELIGE TU PERSONAJE</h2>
+      <div class="seleccion">
+        <div id="lista-personajes" class="lista-personajes"></div>
+        <div class="detalle-personaje">
+          <canvas id="vista-previa"></canvas>
+          <div class="info-personaje">
+            <h3 id="pj-nombre"></h3>
+            <p id="pj-rol" class="rol"></p>
+            <p id="pj-desc" class="desc"></p>
+            <p class="super-pj"><b id="pj-super-nombre"></b> <span id="pj-super-desc"></span></p>
+            <ul id="pj-stats" class="stats"></ul>
+          </div>
+        </div>
+      </div>
+      <div class="botones fila">
+        <button data-accion="volver">VOLVER</button>
+        <button data-accion="confirmar-personaje" class="principal">SIGUIENTE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ELEGIR MAPA ===================== -->
+  <div id="pantalla-mapas" class="pantalla">
+    <div class="panel panel-mapas">
+      <h2>ELIGE EL MAPA</h2>
+      <div id="lista-mapas" class="lista-mapas"></div>
+      <div class="botones fila">
+        <button data-accion="volver-personajes">VOLVER</button>
+        <button data-accion="confirmar-mapa" class="principal">¡A JUGAR!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== AJUSTES ===================== -->
+  <div id="pantalla-ajustes" class="pantalla">
+    <div class="panel">
+      <h2>AJUSTES</h2>
+      <div class="ajustes">
+        <label class="fila-ajuste" for="aj-musica"><span>Volumen de la música</span><input type="range" id="aj-musica" min="0" max="100"></label>
+        <label class="fila-ajuste" for="aj-efectos"><span>Volumen de los efectos</span><input type="range" id="aj-efectos" min="0" max="100"></label>
+        <div class="fila-ajuste">
+          <span>Calidad gráfica</span>
+          <div class="opciones">
+            <button id="aj-alta" class="opcion">ALTA</button>
+            <button id="aj-baja" class="opcion">BAJA</button>
+          </div>
+        </div>
+        <p class="nota-ajuste">Baja: sin sombras y con menos resolución. Va más fluido en celulares y computadores lentos.</p>
+      </div>
+      <button data-accion="volver-ajustes">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===================== CONTROLES ===================== -->
+  <div id="pantalla-controles" class="pantalla">
+    <div class="panel">
+      <h2>CONTROLES</h2>
+      <div class="dos-columnas">
+        <div>
+          <h3>💻 Computador</h3>
+          <ul class="lista-controles">
+            <li><kbd>W A S D</kbd><span>Moverse</span></li>
+            <li><kbd>Mouse</kbd><span>Apuntar</span></li>
+            <li><kbd>Clic izq</kbd><span>Atacar / con balón: lanzar</span></li>
+        <li><kbd>Clic der</kbd><span>Robar / con balón: pasar</span></li>
+            <li><kbd>Clic der</kbd><span>Robar (de frente y cerca) / con balón: pasar al compañero hacia donde apuntas</span></li>
+            <li><kbd>Espacio</kbd><span>Impulso (luego esperas 5 s)</span></li>
+            <li><kbd>R</kbd><span>Súper: mantén para apuntar, suelta para usarla</span></li>
+            <li><kbd>Esc / P</kbd><span>Pausa</span></li>
+            <li><kbd>M</kbd><span>Música sí / no</span></li>
+            <li><kbd>F</kbd><span>Pantalla completa</span></li>
+          </ul>
+        </div>
+        <div>
+          <h3>📱 Celular</h3>
+          <ul class="lista-controles">
+            <li><kbd>Stick izq</kbd><span>Moverse (aparece donde toques)</span></li>
+            <li><kbd>Stick ataque</kbd><span>Arrastra hacia donde quieres tirar (más lejos = tiro más largo) y suelta</span></li>
+            <li><kbd>Volver al centro</kbd><span>Cancela el tiro</span></li>
+            <li><kbd>Sin balón</kbd><span>El stick ataca; un toque rápido ataca al rival más cercano</span></li>
+            <li><kbd>Pase/Robo</kbd><span>Pasar / robar</span></li>
+            <li><kbd>Impulso</kbd><span>Esquivar (luego esperas 5 s)</span></li>
+            <li><kbd>Súper</kbd><span>Arrastra para apuntar y suelta (toque = al más cercano)</span></li>
+            <li><kbd>II</kbd><span>Pausa</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="consejo">
+        🏀 Con el balón, la mira flota a la altura del aro: <b>ponla dentro del aro</b> para encestar.
+        Solo ves la primera mitad del arco: <b class="dorado">dorado</b> = triple, <b>blanco</b> = doble,
+        <b class="gris">gris</b> = no vas al aro. Tirar quieto y de cerca es más preciso.
+      </div>
+      <button data-accion="volver">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===================== LOGROS ===================== -->
+  <div id="pantalla-logros" class="pantalla">
+    <div class="panel">
+      <h2>LOGROS</h2>
+      <p id="contador-logros" class="contador-logros"></p>
+      <ul id="lista-logros"></ul>
+      <p class="mejor">Mejor puntaje en un partido: <b id="mejor-puntaje">0</b></p>
+      <button data-accion="volver">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===================== CRÉDITOS ===================== -->
+  <div id="pantalla-creditos" class="pantalla">
+    <div class="panel">
+      <h2>CRÉDITOS</h2>
+      <p class="credito-grande">Creado por <b>SantiSarm</b></p>
+      <ul class="creditos">
+        <li><span>Idea y diseño</span><b>SantiSarm</b></li>
+        <li><span>Motor 3D</span><b>Three.js</b></li>
+        <li><span>Música y sonidos</span><b>Generados con Web Audio</b></li>
+        <li><span>Fuentes</span><b>Orbitron y Exo 2 (Google Fonts)</b></li>
+      </ul>
+      <button data-accion="volver">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===================== PAUSA ===================== -->
+  <div id="pantalla-pausa" class="pantalla">
+    <div class="panel">
+      <h2>PAUSA</h2>
+      <ul class="lista-controles compacta solo-pc">
+        <li><kbd>W A S D</kbd><span>Moverse</span></li>
+        <li><kbd>Mouse</kbd><span>Apuntar</span></li>
+        <li><kbd>Clic izq</kbd><span>Atacar / con balón: lanzar</span></li>
+        <li><kbd>Clic der</kbd><span>Robar / con balón: pasar</span></li>
+        <li><kbd>Espacio</kbd><span>Impulso (espera 5 s)</span></li>
+        <li><kbd>R</kbd><span>Súper (mantén y suelta)</span></li>
+      </ul>
+      <ul class="lista-controles compacta solo-tactil">
+        <li><kbd>Stick izq</kbd><span>Moverse</span></li>
+        <li><kbd>Stick ataque</kbd><span>Arrastra y suelta: lanzar</span></li>
+        <li><kbd>Al centro</kbd><span>Cancelar tiro</span></li>
+        <li><kbd>Sin balón</kbd><span>Stick naranja = atacar (toque = al más cercano)</span></li>
+        <li><kbd>Impulso</kbd><span>Esquivar (luego esperas 5 s)</span></li>
+      </ul>
+      <div class="botones">
+        <button data-accion="reanudar" class="principal">REANUDAR</button>
+        <button data-accion="musica" class="btn-musica">Música: SÍ</button>
+        <button data-accion="ajustes">AJUSTES</button>
+        <button data-accion="abandonar">ABANDONAR PARTIDO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== RESULTADO ===================== -->
+  <div id="pantalla-fin" class="pantalla">
+    <div class="panel">
+      <h2 id="fin-titulo"></h2>
+      <div id="fin-marcador"></div>
+      <p id="fin-info"></p>
+      <ul id="fin-stats"></ul>
+      <div class="botones fila">
+        <button data-accion="otra-vez" class="principal">JUGAR OTRA VEZ</button>
+        <button data-accion="cambiar-personaje">CAMBIAR PERSONAJE O MAPA</button>
+        <button data-accion="menu">MENÚ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js desde CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Código del juego (el orden importa) -->
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/arena.js"></script>
+  <script src="js/personajes.js"></script>
+  <script src="js/combate.js"></script>
+  <script src="js/bots.js"></script>
+  <script src="js/poderes.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
