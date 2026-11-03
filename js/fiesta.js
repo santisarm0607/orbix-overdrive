@@ -392,10 +392,7 @@ function crearFiesta(ctx) {
     h.anillo.position.y = 0.04;
     scene.add(h.anillo);
     // Indicadores de apuntado (se ven en la pantalla mientras apuntas con el celular)
-    h.tira = new THREE.Mesh(geoTira, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
-    h.mira = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
-    h.mira.rotation.x = -Math.PI / 2;
-    [h.tira, h.mira].forEach((m) => { m.visible = false; scene.add(m); });
+    h.ind = crearIndicadores(s.ataque);
     h.barra.style.setProperty('--p', '#' + color.toString(16).padStart(6, '0'));
 
     // El celular vibra con el daño
@@ -415,10 +412,47 @@ function crearFiesta(ctx) {
   geoTira.translate(0, 0.5, 0);
   geoTira.rotateX(Math.PI / 2);
 
+  // Indicadores de cada persona (iguales a los del modo de un jugador):
+  // - con balón: arco punteado del tiro + mira a la altura del aro + sombra en el piso
+  // - sin balón: la forma real del ataque (cono, línea o área)
+  // - súper: lo mismo en dorado
+  const PUNTOS_ARCO = 16;
+  const geoPunto = new THREE.SphereGeometry(0.15, 8, 6);
+  function crearIndicadores(ataque) {
+    const mat = (color, op) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, side: THREE.DoubleSide, depthWrite: false });
+    const ind = {};
+    ind.matZona = mat(0xffffff, 0.3);
+    ind.tira = new THREE.Mesh(geoTira, ind.matZona);
+    ind.area = new THREE.Mesh(new THREE.CircleGeometry(1, 32), ind.matZona);
+    ind.area.rotation.x = -Math.PI / 2;
+    ind.borde = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 32), mat(0xffffff, 0.8));
+    ind.borde.rotation.x = -Math.PI / 2;
+    ind.sector = new THREE.Mesh(new THREE.BufferGeometry(), ind.matZona);
+    if (ataque.tipo === 'golpe') {
+      const mitad = THREE.MathUtils.degToRad(ataque.angulo / 2);
+      const geo = new THREE.CircleGeometry(ataque.alcance, 20, Math.PI / 2 - mitad, mitad * 2);
+      geo.rotateX(Math.PI / 2);
+      ind.sector.geometry = geo;
+    }
+    // Arco del tiro: bolitas gruesas (una línea de 1 píxel casi no se ve en una TV)
+    ind.matArco = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+    ind.puntos = [];
+    for (let i = 0; i < PUNTOS_ARCO; i++) ind.puntos.push(new THREE.Mesh(geoPunto, ind.matArco));
+    // Mira del tiro (se dibuja encima de todo para que no se pierda)
+    ind.mira = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.36, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false, transparent: true }));
+    ind.mira.rotation.x = -Math.PI / 2;
+    ind.mira.renderOrder = 10;
+    ind.sombra = new THREE.Mesh(new THREE.CircleGeometry(0.4, 20), mat(0x000000, 0.35));
+    ind.sombra.rotation.x = -Math.PI / 2;
+    ind.todos = [ind.tira, ind.area, ind.borde, ind.sector, ...ind.puntos, ind.mira, ind.sombra];
+    ind.todos.forEach((m) => { m.visible = false; scene.add(m); });
+    return ind;
+  }
+
   function quitarHumanos() {
     humanos.forEach((h) => {
       combate.quitar(h);
-      [h.malla, h.anillo, h.tira, h.mira].forEach((m) => scene.remove(m));
+      [h.malla, h.anillo, ...h.ind.todos].forEach((m) => scene.remove(m));
       if (balon.portador === h) balon.portador = null;
       if (h.jugadorFiesta) h.jugadorFiesta.ent = null;
     });
@@ -554,11 +588,25 @@ function crearFiesta(ctx) {
         } else {
           p = puntoApuntado(h, +m.x || 0, +m.z || 0, +m.f || 0);
         }
+        const conBalon = balon.portador === h;
+        // Toque rápido con balón y con compañeros: pase al que esté más hacia donde miras
+        if (conBalon && m.toque) {
+          const c = mejorCompanero(h, h.dir.x, h.dir.z);
+          if (c) { ctx.pasar(h, c); break; }
+        }
         h.dir.set(p.x - h.pos.x, 0, p.z - h.pos.z);
         if (h.dir.lengthSq() < 0.001) h.dir.set(h.equipo === 'azul' ? 1 : -1, 0, 0);
         h.dir.normalize();
-        if (balon.portador === h) tirar(h, p);
-        else combate.atacar(h, s.ataque, p.x, p.z);
+        if (conBalon) {
+          // Si apuntas a un compañero (y no al aro), es un pase
+          const c = companeroEn(h, p);
+          if (c) ctx.pasar(h, c);
+          else tirar(h, p);
+        } else {
+          // Robo automático: si atacas al que tiene el balón estando pegado a él
+          if (roboAutomatico(h)) break;
+          combate.atacar(h, s.ataque, p.x, p.z);
+        }
         break;
       }
       case 'secundaria': secundaria(h); break;
@@ -599,7 +647,46 @@ function crearFiesta(ctx) {
     ctx.lanzarBalonA(h, ox, oz, error, alAro);
   }
 
-  // Botón PASE / ROBO
+  // ¿Hay un compañero cerca del punto al que apuntas? (y no estás apuntando al aro)
+  function companeroEn(h, p) {
+    const aro = aroQueAtaca(h);
+    if (Math.hypot(p.x - aro.x, p.z - aro.z) < T.radioIntentoTiro) return null;
+    let mejor = null, md = 2.5;
+    for (const e of combate.entidades) {
+      if (e === h || !e.vivo || e.equipo !== h.equipo) continue;
+      const d = Math.hypot(e.pos.x - p.x, e.pos.z - p.z);
+      if (d < md && distancia(e.pos, h.pos) <= CONFIG.pase.distanciaMax) { md = d; mejor = e; }
+    }
+    return mejor;
+  }
+
+  // Compañero más hacia una dirección (para el pase con toque rápido)
+  function mejorCompanero(h, dx, dz) {
+    let mejor = null, mp = Infinity;
+    for (const e of combate.entidades) {
+      if (e === h || !e.vivo || e.equipo !== h.equipo) continue;
+      const ex = e.pos.x - h.pos.x, ez = e.pos.z - h.pos.z;
+      const d = Math.hypot(ex, ez);
+      if (d > CONFIG.pase.distanciaMax) continue;
+      const ang = Math.acos(Math.max(-1, Math.min(1, (ex * dx + ez * dz) / (d || 1))));
+      const pts = ang * 3 + d * 0.05;
+      if (pts < mp) { mp = pts; mejor = e; }
+    }
+    return mejor;
+  }
+
+  // Robo sin botón: atacar pegado al rival que tiene el balón intenta quitárselo
+  function roboAutomatico(h) {
+    const p = balon.portador;
+    if (!p || p.equipo === h.equipo || h.cdRobo > 0) return false;
+    if (distancia(p.pos, h.pos) > CONFIG.robo.alcance + 0.5) return false;
+    h.dir.set(p.pos.x - h.pos.x, 0, p.pos.z - h.pos.z).normalize();
+    const ok = ctx.intentarRobo(h);
+    if (ok) { avisar(h.jugadorFiesta, '¡Robo!'); vibrar(h.jugadorFiesta, 80); }
+    return ok;
+  }
+
+  // (Antes era el botón PASE / ROBO; se deja por si un control viejo lo manda)
   function secundaria(h) {
     const j = h.jugadorFiesta;
     if (balon.portador === h) {
@@ -643,34 +730,109 @@ function crearFiesta(ctx) {
   // ==========================================================
   function indicadores(h) {
     const j = h.jugadorFiesta;
+    const ind = h.ind;
     h.anillo.visible = h.vivo;
     h.anillo.position.set(h.pos.x, 0.04, h.pos.z);
-    h.tira.visible = h.mira.visible = false;
+    ind.todos.forEach((m) => { m.visible = false; });
     if (!h.vivo || !enJuego()) return;
     const s = CONFIG.personajes[h.personaje];
-    let p = null, r = 0.35, largo = 0;
+    const colorP = COLORES_P[(j.num - 1) % COLORES_P.length];
+
+    // Pone una franja desde el personaje (ancho, largo) y un área (x, z, radio)
+    const tira = (ang, ancho, largo) => {
+      ind.tira.visible = true;
+      ind.tira.position.set(h.pos.x, 0.06, h.pos.z);
+      ind.tira.rotation.y = ang;
+      ind.tira.scale.set(ancho, 1, Math.max(0.1, largo));
+    };
+    const area = (x, z, r) => {
+      ind.area.visible = ind.borde.visible = true;
+      ind.area.position.set(x, 0.07, z);
+      ind.borde.position.set(x, 0.08, z);
+      ind.area.scale.setScalar(r);
+      ind.borde.scale.setScalar(r);
+    };
+
+    // ---- Súper (dorado) ----
     if (j.input.sp && h.carga >= 1) {
-      const sp = j.input.sp;
-      const alc = s.super.alcance || 4;
-      const d = Math.max(1, sp.f * alc);
-      p = { x: h.pos.x + sp.x * d, z: h.pos.z + sp.z * d };
-      r = s.super.radio || s.super.radioExplosion || 1.2;
-      h.mira.material.color.setHex(COL.dorado);
-    } else if (j.input.ap && !j.input.ap.c) {
-      const ap = j.input.ap;
-      p = puntoApuntado(h, ap.x, ap.z, ap.f);
-      r = balon.portador === h ? 0.5 : (s.ataque.radioExplosion || 0.45);
-      h.mira.material.color.setHex(COLORES_P[(j.num - 1) % COLORES_P.length]);
+      const sp = j.input.sp, su = s.super;
+      const alc = su.alcance || 0;
+      const d = Math.max(1, sp.f * (alc || 4));
+      const dist = Math.min(d, alc);
+      const ang = Math.atan2(sp.x, sp.z);
+      const x = h.pos.x + sp.x * dist, z = h.pos.z + sp.z * dist;
+      ind.matZona.color.setHex(COL.dorado);
+      ind.borde.material.color.setHex(COL.dorado);
+      if (su.tipo === 'rafaga') tira(ang, 2 * Math.tan(THREE.MathUtils.degToRad(su.abanico / 2)) * alc * 0.5 + 0.6, alc);
+      else if (su.tipo === 'salto' || su.tipo === 'lluvia') { tira(ang, 0.15, dist); area(x, z, su.radio); }
+      else if (su.tipo === 'granBomba') { tira(ang, 0.15, dist); area(x, z, su.radioExplosion); }
+      else if (su.tipo === 'escudo') area(h.pos.x, h.pos.z, su.radio);
+      else area(h.pos.x, h.pos.z, 1.2);
+      return;
     }
-    if (!p) return;
-    largo = Math.hypot(p.x - h.pos.x, p.z - h.pos.z);
-    h.tira.visible = h.mira.visible = true;
-    h.tira.position.set(h.pos.x, 0.06, h.pos.z);
-    h.tira.rotation.y = Math.atan2(p.x - h.pos.x, p.z - h.pos.z);
-    h.tira.scale.set(0.15, 1, largo);
-    // Con el balón la mira va a la altura del aro (igual que al jugar solo)
-    h.mira.position.set(p.x, balon.portador === h ? C.aroAltura + 0.02 : 0.07, p.z);
-    h.mira.scale.setScalar(r);
+
+    const ap = j.input.ap;
+    if (!ap || ap.c) return;
+    const p = puntoApuntado(h, ap.x, ap.z, ap.f);
+    const ang = Math.atan2(p.x - h.pos.x, p.z - h.pos.z);
+    let dx = p.x - h.pos.x, dz = p.z - h.pos.z;
+    const largo = Math.hypot(dx, dz) || 1;
+    dx /= largo; dz /= largo;
+
+    // ---- Con balón: arco del tiro (o del pase) ----
+    if (balon.portador === h) {
+      const companero = companeroEn(h, p);
+      const aro = aroQueAtaca(h);
+      const d = Math.min(largo, T.distanciaMaxLanzamiento);
+      const salida = { x: h.pos.x + dx * 0.6, y: 2.1, z: h.pos.z + dz * 0.6 };
+      let obj, tVuelo;
+      if (companero) {
+        obj = { x: companero.pos.x, y: 1.0, z: companero.pos.z };
+        tVuelo = Math.max(0.25, Math.min(distancia(companero.pos, h.pos), CONFIG.pase.distanciaMax) / CONFIG.pase.velocidad);
+        salida.y = 1.3;
+      } else {
+        obj = { x: h.pos.x + dx * d, y: C.aroAltura + 0.02, z: h.pos.z + dz * d };
+        tVuelo = T.tiempoBase + d * T.tiempoPorDistancia;
+      }
+      const g = CONFIG.balon.gravedad;
+      const vx = (obj.x - salida.x) / tVuelo, vz = (obj.z - salida.z) / tVuelo;
+      const vy = (obj.y - salida.y + 0.5 * g * tVuelo * tVuelo) / tVuelo;
+      // Las bolitas avanzan despacio por el arco para que se note hacia dónde va
+      const corrida = (ctx.tiempo() * 1.5) % 1;
+      ind.puntos.forEach((m, i) => {
+        const t = ((i + corrida) / PUNTOS_ARCO) * tVuelo;
+        m.position.set(salida.x + vx * t, salida.y + vy * t - 0.5 * g * t * t, salida.z + vz * t);
+        m.scale.setScalar(1 - (i / PUNTOS_ARCO) * 0.35);
+        m.visible = true;
+      });
+      // Color: verde = pase, dorado = triple, blanco = doble, gris = no va al aro
+      const alAro = Math.hypot(obj.x - aro.x, obj.z - aro.z) < T.radioIntentoTiro;
+      const triple = distancia(h.pos, aro) > C.radioTriple;
+      const color = companero ? 0x7dff9a : !alAro ? 0x8888aa : triple ? COL.dorado : 0xffffff;
+      ind.matArco.color.setHex(color);
+      ind.mira.material.color.setHex(color);
+      ind.mira.visible = ind.sombra.visible = true;
+      ind.mira.position.set(obj.x, obj.y + 0.02, obj.z);
+      ind.mira.rotation.z += 0.03;
+      ind.sombra.position.set(obj.x, 0.05, obj.z);
+      return;
+    }
+
+    // ---- Sin balón: forma del ataque ----
+    const a = s.ataque;
+    ind.matZona.color.setHex(h.cdAtaque > 0 ? 0x888899 : colorP);
+    ind.borde.material.color.setHex(colorP);
+    if (a.tipo === 'golpe') {
+      ind.sector.visible = true;
+      ind.sector.position.set(h.pos.x, 0.06, h.pos.z);
+      ind.sector.rotation.y = ang;
+    } else if (a.tipo === 'bomba') {
+      const d = Math.min(largo, a.alcance);
+      tira(ang, 0.12, d);
+      area(h.pos.x + dx * d, h.pos.z + dz * d, a.radioExplosion);
+    } else {
+      tira(ang, Math.max(0.4, (a.radio || 0.2) * 2), a.alcance);
+    }
   }
 
   // ==========================================================
@@ -753,7 +915,7 @@ function crearFiesta(ctx) {
   }
 
   // Para pruebas automáticas
-  window.__fiesta = { get jugadores() { return lista(); }, get fase() { return fase; }, get humanos() { return humanos; }, sala };
+  window.__fiesta = { get balon() { return balon; }, get jugadores() { return lista(); }, get fase() { return fase; }, get humanos() { return humanos; }, sala };
 
   return {
     abrir, cerrar, empezar, alTerminar, volverASala, colocar, actualizar, cambiarAjuste,

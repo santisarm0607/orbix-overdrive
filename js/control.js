@@ -394,7 +394,6 @@
   // Botones simples
   const boton = (id, fn) => $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); fn(); if (navigator.vibrate) navigator.vibrate(15); });
   boton('b-impulso', () => enviar({ t: 'accion', a: 'impulso' }));
-  boton('b-pase', () => enviar({ t: 'accion', a: 'secundaria' }));
 
   // Evitar zoom y scroll
   document.addEventListener('touchmove', (e) => { if (fase === 'juego') e.preventDefault(); }, { passive: false });
@@ -451,7 +450,6 @@
     $('b-impulso').classList.toggle('listo', e.cdImp <= 0);
     // Con balón: el stick se ve dorado
     stickAtaque.classList.toggle('con-balon', !!e.conBalon);
-    $('b-pase').innerHTML = e.conBalon ? 'PASE' : 'ROBO';
     // Avisos
     let txt = '';
     if (!e.vivo) txt = `ELIMINADO · reapareces en ${Math.max(1, Math.ceil(e.tRe))}`;
