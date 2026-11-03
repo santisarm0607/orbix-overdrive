@@ -377,6 +377,19 @@ Correcciones de SantiSarm después de probar con una amiga:
 
 ---
 
+## v0.9.2 — Errores encontrados con pruebas automáticas (3 nov 2026)
+Se jugaron muchos partidos automáticos con el reloj acelerado: 10 partidos de un jugador (los 6 personajes, los 4 mapas, de 1 a 5 jugadores reales) y 3 de Modo Fiesta con hasta 6 celulares simulados que se mueven, disparan y usan la súper al azar. En cada cuadro se revisó: errores de JavaScript, posiciones raras (NaN), personajes fuera de la cancha o dentro de obstáculos, vida y súper fuera de rango, balón atascado y partidos que no terminan.
+
+Errores corregidos:
+- **Aparición dentro de las barreras (Estación Orbital):** los dos lugares de los lados de cada equipo (±9.5, ±4) estaban DENTRO de las barreras; ahora son (±10.4, ±4), detrás de ellas.
+- **Personajes metidos en las cajas:** si el centro de un personaje quedaba dentro de una caja (por un impulso rápido o empujado por otro), solo se movía un poco y podía quedarse adentro. Ahora sale por el lado más cercano. También se revisan los obstáculos después de separarse de otro personaje.
+- **Kraag saltaba fuera de la cancha** con su súper: el punto de caída ahora siempre queda dentro.
+- **El jugador siempre se llamaba "Nova"** en los avisos (por ejemplo, "¡Nova usó…!") aunque eligieras otro personaje.
+
+Lo que se probó y funciona: pausa, abandonar, jugar otra vez, cambiar de personaje y mapa; en el Modo Fiesta: 7º celular rechazado (sala llena), celular que se cae y vuelve a entrar con su personaje, celulares que se van, mensajes dañados, pausa y abandonar (vuelve a la sala), salir del Modo Fiesta.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -397,4 +410,5 @@ Correcciones de SantiSarm después de probar con una amiga:
 - [x] **v0.8** — Animaciones de ataque, súper y lanzamiento para los 6 personajes.
 - [x] **v0.9** — **Modo Fiesta**: una pantalla y hasta 6 celulares como control (QR, equipos, bots opcionales, vibración).
 - [x] **v0.9.1** — Sin botón Pase/Robo en el celular, puntería visible en la TV.
+- [x] **v0.9.2** — Correcciones de las pruebas automáticas (apariciones, colisiones, salto de Kraag, nombre del jugador).
 - [ ] **Futuro** — Online cada uno en su propio dispositivo, Rival League.
