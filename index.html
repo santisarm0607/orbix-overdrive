@@ -95,12 +95,45 @@
       <p class="lema">Baloncesto galáctico 3 vs 3</p>
       <div class="botones">
         <button data-accion="jugar" class="principal">JUGAR</button>
+        <button data-accion="fiesta" class="fiesta-btn">📱 MODO FIESTA</button>
         <button data-accion="controles">CONTROLES</button>
         <button data-accion="logros">LOGROS</button>
         <button data-accion="creditos">CRÉDITOS</button>
         <button data-accion="ajustes">AJUSTES</button>
       </div>
       <p class="version">Versión <span id="version"></span></p>
+    </div>
+  </div>
+
+  <!-- ===================== MODO FIESTA: SALA ===================== -->
+  <div id="pantalla-fiesta" class="pantalla">
+    <div class="panel panel-fiesta">
+      <h2>MODO FIESTA <small>una pantalla · los celulares son el control</small></h2>
+      <div class="fiesta-cuerpo">
+        <div class="fiesta-qr-caja">
+          <div id="fiesta-qr" class="fiesta-qr"></div>
+          <p class="fiesta-codigo-txt">Código <b id="fiesta-codigo">····</b></p>
+          <p id="fiesta-url" class="fiesta-url"></p>
+          <p id="fiesta-estado" class="fiesta-estado"></p>
+        </div>
+        <div class="fiesta-equipos">
+          <div class="fiesta-equipo azul"><h3>AZUL</h3><ul id="fiesta-azul"></ul></div>
+          <div class="fiesta-equipo rojo"><h3>ROJO</h3><ul id="fiesta-rojo"></ul></div>
+          <p id="fiesta-sin-equipo" class="fiesta-sin-equipo"></p>
+          <div class="fiesta-ajustes">
+            <label>Mapa <select id="fiesta-mapa"></select></label>
+            <span class="fiesta-bots">Bots
+              <button id="fiesta-bots-si" class="opcion">SÍ</button>
+              <button id="fiesta-bots-no" class="opcion">NO</button>
+            </span>
+          </div>
+        </div>
+      </div>
+      <p id="fiesta-msg" class="fiesta-msg"></p>
+      <div class="botones fila">
+        <button id="fiesta-empezar" data-accion="fiesta-empezar" class="principal">EMPEZAR YA</button>
+        <button data-accion="fiesta-salir">SALIR</button>
+      </div>
     </div>
   </div>
 
@@ -264,6 +297,7 @@
       <div id="fin-marcador"></div>
       <p id="fin-info"></p>
       <ul id="fin-stats"></ul>
+      <p id="fin-volver" class="solo-fiesta"></p>
       <div class="botones fila">
         <button data-accion="otra-vez" class="principal">JUGAR OTRA VEZ</button>
         <button data-accion="cambiar-personaje">CAMBIAR PERSONAJE O MAPA</button>
@@ -282,6 +316,11 @@
   <script src="js/combate.js"></script>
   <script src="js/bots.js"></script>
   <script src="js/poderes.js"></script>
+  <!-- Modo Fiesta: conexión con los celulares (PeerJS) y código QR -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/red.js"></script>
+  <script src="js/fiesta.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

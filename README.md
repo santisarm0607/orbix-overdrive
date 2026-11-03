@@ -13,6 +13,14 @@ Juego web 3D de baloncesto galáctico **3 contra 3**, inspirado en el modo Brawl
 - En la cancha aparecen **poderes**: Turbo, Escudo, Balón de fuego (+1 punto), Imán y Recarga de súper.
 - La dificultad de los rivales depende de cuántos jugadores reales hay (con 1 son suaves).
 
+## 📱 Modo Fiesta (una pantalla + celulares)
+1. Abre el juego en el computador o TV y toca **MODO FIESTA**.
+2. Cada persona escanea el **código QR** con su celular (hasta 6).
+3. En el celular: nombre, equipo, personaje y **¡LISTO!**. El primero en entrar (👑) elige el mapa y si hay bots.
+4. El celular es el control: stick para moverse, stick naranja para atacar o lanzar, y botones de Súper, Pase/Robo e Impulso. Muestra tu vida y tu súper, y **vibra** cuando te golpean.
+
+> Necesita internet y funciona desde la página publicada en GitHub Pages: https://santisarm0607.github.io/orbix-overdrive/
+
 ## Controles
 
 ### Computador
@@ -36,12 +44,15 @@ Juego web 3D de baloncesto galáctico **3 contra 3**, inspirado en el modo Brawl
 ## Ejecutar
 1. Abre la carpeta en Visual Studio Code.
 2. Clic derecho en `index.html` → **Open with Live Server**.
-3. Necesita internet (Three.js y las fuentes se cargan desde CDN).
+3. Necesita internet (Three.js, PeerJS y las fuentes se cargan desde CDN).
+4. Modo Fiesta con Live Server: en el celular cambia `127.0.0.1` por la IP del computador (los dos en el mismo wifi).
 
 ## Estructura
 ```
 index.html        pantallas y HUD
+control.html      el celular como control (Modo Fiesta)
 css/style.css     estilos
+css/control.css   estilo del control
 js/config.js      todos los números del juego
 js/audio.js       música y sonidos (Web Audio)
 js/arena.js       mapas, aros y balón
@@ -49,11 +60,14 @@ js/personajes.js  los 6 personajes
 js/combate.js     ataques, súper, vida y reaparición
 js/bots.js        inteligencia de los bots
 js/poderes.js     poderes de la cancha
+js/red.js         conexión con los celulares (PeerJS)
+js/fiesta.js      Modo Fiesta: sala y personajes de cada persona
+js/control.js     lógica del control en el celular
 js/game.js        partido, controles, cámara, menús y logros
 NOTAS.md          historial de versiones y decisiones
 ```
 
 ## Tecnologías
-HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · Web Audio API · localStorage
+HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · PeerJS (WebRTC) · qrcode.js · Web Audio API · localStorage
 
-Versión actual: **v0.8** — más detalles en [NOTAS.md](NOTAS.md).
+Versión actual: **v0.9** — más detalles en [NOTAS.md](NOTAS.md).

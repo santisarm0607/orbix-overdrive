@@ -12,7 +12,9 @@ Creado por **SantiSarm**.
 ```
 orbix-overdrive/
 ├── index.html      → pantallas, HUD y orden de los scripts
+├── control.html    → el celular como control (Modo Fiesta)
 ├── css/style.css   → estilo neón de menús y HUD
+├── css/control.css → estilo del control del celular
 ├── js/config.js    → TODOS los números del juego (velocidades, tiempos, precisión…)
 ├── js/audio.js     → efectos y música generados con Web Audio
 ├── js/arena.js     → escenario de cada mapa (piso, obstáculos, lava, fondo), aros y balón
@@ -20,6 +22,9 @@ orbix-overdrive/
 ├── js/combate.js   → ataques, súper habilidades, vida, escudos, eliminación y reaparición
 ├── js/bots.js      → inteligencia de los bots (compañeros y rivales)
 ├── js/poderes.js   → orbes de poder que aparecen en la cancha
+├── js/red.js       → conexión de la pantalla con los celulares (PeerJS)
+├── js/fiesta.js    → Modo Fiesta: sala, personajes de cada persona y datos al celular
+├── js/control.js   → lógica del control en el celular
 ├── js/game.js      → lógica del partido, controles, cámara, HUD, menús y logros
 └── NOTAS.md        → este archivo
 ```
@@ -326,6 +331,39 @@ Idea de SantiSarm: los personajes no hacían ningún movimiento al atacar ("el m
 
 ---
 
+## v0.9 — Modo Fiesta: una pantalla y los celulares como control (3 nov 2026)
+
+### Cómo se juega
+1. En el computador (o TV) toca **📱 MODO FIESTA**. Aparece un **código QR** y un **código de 4 letras**.
+2. Cada persona escanea el QR con la cámara del celular (o abre `control.html` y escribe el código).
+3. En el celular: escribe tu nombre, elige **equipo** (máximo 3 por equipo) y **personaje** (no se repiten), y toca **¡LISTO!**.
+4. Cuando todos están listos empieza una cuenta de 5 segundos. La pantalla también tiene **EMPEZAR YA**.
+5. El computador solo muestra el partido: nadie juega con el teclado.
+
+### Decisiones (de SantiSarm)
+- **Solo pantalla:** el computador no juega, hasta 6 celulares.
+- **Cada uno elige** equipo y personaje en su celular.
+- **Bots sí o no:** con bots, los lugares libres se llenan con bots; sin bots, juegan solo las personas (cada equipo necesita al menos una).
+- **El celular muestra** botones, vida, súper, marcador y tiempo, y **vibra** al recibir daño.
+
+### Detalles
+- El primero que entra es el **líder 👑**: elige el mapa y los bots desde su celular (también se puede desde la pantalla).
+- Con bots, el nivel de **todos** los bots depende de cuántas personas juegan (`CONFIG.bots.rivales[personas]`).
+- Cada persona tiene un **anillo de color** bajo los pies y su nombre (P1, P2…) sobre la cabeza.
+- Mientras apuntas con el celular, en la pantalla se ve la línea y la mira de tu tiro, ataque o súper.
+- Al terminar: tabla con puntos y eliminaciones de cada persona (⭐ al mejor) y vuelve sola a la sala en 10 s.
+- Si a alguien se le cae la conexión en pleno partido, su personaje se queda quieto y puede **volver a entrar** con el mismo celular.
+- El celular manda un "latido" cada 2 s: si deja de responder 7 s, sale de la sala.
+
+### Cómo funciona (para el código)
+- Usa **PeerJS** (WebRTC): la pantalla abre una sala `orbix-overdrive-sala-CÓDIGO` y cada celular se conecta directo a ella. El servidor gratuito de PeerJS solo presenta a los dos, los datos van de celular a pantalla.
+- El celular manda el stick 20 veces por segundo (`in`) y las acciones (`accion`). La pantalla le manda su `estado` 8 veces por segundo.
+- Números en `CONFIG.red` y `CONFIG.fiesta` (cámara, cuenta regresiva, espera para volver a la sala).
+- **Importante:** funciona desde **GitHub Pages** (o Live Server con la IP del computador). **No funciona dentro del artefacto** de Claude, porque ahí están bloqueadas las conexiones.
+- Probado con un servidor PeerJS local, una pantalla y dos celulares simulados: sala, QR, personajes bloqueados, líder, cuenta regresiva, movimiento, ataques, resultado, vuelta a la sala y salida de un celular.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -344,4 +382,5 @@ Idea de SantiSarm: los personajes no hacían ningún movimiento al atacar ("el m
 - [x] **v0.7** — Más logros, ajustes, cuenta regresiva y pulido final para la entrega.
 - [x] **v0.7.1** — Correcciones: vista previa del personaje y lugar de salida.
 - [x] **v0.8** — Animaciones de ataque, súper y lanzamiento para los 6 personajes.
-- [ ] **Futuro** — Online con salas y código de invitación (PeerJS), Rival League.
+- [x] **v0.9** — **Modo Fiesta**: una pantalla y hasta 6 celulares como control (QR, equipos, bots opcionales, vibración).
+- [ ] **Futuro** — Online cada uno en su propio dispositivo, Rival League.

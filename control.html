@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0820">
+  <title>ORBIX: Overdrive · Control</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/control.css">
+</head>
+<body>
+
+  <!-- ===================== 1. CONECTAR ===================== -->
+  <section id="vista-conectar" class="vista activa">
+    <div class="tarjeta">
+      <h1 class="logo">ORBIX<span>CONTROL</span></h1>
+      <p class="sub">Tu celular será el control. Mira la pantalla grande.</p>
+      <label for="in-nombre">Tu nombre</label>
+      <input id="in-nombre" maxlength="10" autocomplete="off" placeholder="Ej: Santi">
+      <label for="in-codigo">Código de la sala</label>
+      <input id="in-codigo" maxlength="4" autocomplete="off" placeholder="ABCD" class="codigo">
+      <button id="btn-conectar" class="principal">CONECTAR</button>
+      <p id="msg-conectar" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- ===================== 2. SALA ===================== -->
+  <section id="vista-sala" class="vista">
+    <div class="tarjeta ancha">
+      <header class="cabeza-sala">
+        <span id="chip-num" class="chip">P1</span>
+        <b id="sala-nombre"></b>
+        <span class="codigo-mini">Sala <b id="sala-codigo"></b></span>
+      </header>
+
+      <h2>1. Elige tu equipo</h2>
+      <div class="equipos">
+        <button id="eq-azul" class="eq azul">AZUL <small id="cnt-azul">0/3</small></button>
+        <button id="eq-rojo" class="eq rojo">ROJO <small id="cnt-rojo">0/3</small></button>
+      </div>
+
+      <h2>2. Elige tu personaje</h2>
+      <div id="grid-pj" class="grid-pj"></div>
+      <p id="pj-info" class="pj-info"></p>
+
+      <div id="zona-lider" class="zona-lider" hidden>
+        <h2>Ajustes de la partida <small>(tú eres el líder)</small></h2>
+        <div class="fila">
+          <label for="sel-mapa">Mapa</label>
+          <select id="sel-mapa"></select>
+        </div>
+        <div class="fila">
+          <span>Rellenar con bots</span>
+          <div class="opciones">
+            <button id="bots-si" class="opcion">SÍ</button>
+            <button id="bots-no" class="opcion">NO</button>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-listo" class="principal grande">¡LISTO!</button>
+      <p id="msg-sala" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- ===================== 3. CONTROL (partido) ===================== -->
+  <section id="vista-juego" class="vista">
+    <div class="barra-arriba">
+      <div class="yo">
+        <span id="j-num" class="chip">P1</span>
+        <b id="j-nombre"></b>
+      </div>
+      <div class="medidores">
+        <div class="medidor"><span>VIDA</span><div class="barra vida"><i id="j-vida"></i></div><b id="j-vida-num"></b></div>
+        <div class="medidor"><span>SÚPER</span><div class="barra super"><i id="j-super"></i></div><b id="j-super-num"></b></div>
+      </div>
+      <div class="marcador">
+        <span class="azul" id="j-az">0</span>
+        <span class="tiempo" id="j-tiempo">2:30</span>
+        <span class="rojo" id="j-ro">0</span>
+      </div>
+      <button id="btn-pantalla" class="mini" aria-label="Pantalla completa">⛶</button>
+    </div>
+
+    <!-- Zona del stick de movimiento (mitad izquierda) -->
+    <div id="zona-mover">
+      <div id="stick-mover" class="stick"><div class="perilla"></div></div>
+      <span class="ayuda">Moverse</span>
+    </div>
+
+    <!-- Botones de la derecha -->
+    <div id="grupo-derecho">
+      <button id="b-super" class="btn super">SÚPER</button>
+      <button id="b-pase" class="btn pase">PASE<br>ROBO</button>
+      <button id="b-impulso" class="btn impulso">IMPULSO<span id="cd-impulso" class="cd"></span></button>
+      <div id="stick-ataque" class="stick fijo"><div class="perilla">🏀</div></div>
+    </div>
+
+    <div id="aviso-estado" class="aviso-estado"></div>
+  </section>
+
+  <!-- ===================== 4. RESULTADO ===================== -->
+  <section id="vista-fin" class="vista">
+    <div class="tarjeta">
+      <h1 id="fin-titulo"></h1>
+      <div id="fin-marcador" class="fin-marcador"></div>
+      <ul id="fin-yo" class="fin-yo"></ul>
+      <p id="fin-msg" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- Gira el celular (solo durante el partido) -->
+  <div id="gira" class="gira">
+    <div class="icono">📱</div>
+    <p>Gira el celular<br>para usar el control</p>
+  </div>
+
+  <!-- Se perdió la conexión -->
+  <div id="perdida" class="perdida" hidden>
+    <p>Se perdió la conexión con la pantalla.</p>
+    <button id="btn-reconectar" class="principal">RECONECTAR</button>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/personajes.js"></script>
+  <script src="js/control.js"></script>
+</body>
+</html>
