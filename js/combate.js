@@ -37,6 +37,7 @@ function crearCombate(ctx) {
       tiempoReaparicion: opciones.tiempoReaparicion || CB.tiempoReaparicion,
       nombre: opciones.nombre || '',
       eliminaciones: 0,
+      puntos: 0,           // puntos anotados (tabla del Modo Fiesta)
       carga: 0,            // súper: 0 a 1
       escudo: 0,           // vida extra del escudo de Lumen
       tEscudo: 0,
@@ -48,7 +49,7 @@ function crearCombate(ctx) {
     });
     // Barra de vida (HTML) que flota sobre la cabeza
     const barra = document.createElement('div');
-    barra.className = `barra-ent ${ent.equipo}${ent.esJugador ? ' jugador' : ''}`;
+    barra.className = `barra-ent ${ent.equipo}${ent.esJugador ? ' jugador' : ''}${ent.esRemoto ? ' humano' : ''}`;
     barra.innerHTML = `<span class="nombre">${ent.nombre}</span><div class="vida"><i></i></div><span class="num"></span>`;
     capaBarras.appendChild(barra);
     ent.barra = barra;
@@ -82,6 +83,20 @@ function crearCombate(ctx) {
     if (ent.barra) ent.barra.remove();
   }
 
+  // Saca a alguien del partido sin borrarlo (Modo Fiesta: el jugador local no juega)
+  function sacar(ent) {
+    const i = entidades.indexOf(ent);
+    if (i >= 0) entidades.splice(i, 1);
+    if (ent.barra) ent.barra.style.display = 'none';
+    ent.malla.visible = false;
+  }
+
+  // Lo vuelve a meter (al salir del Modo Fiesta)
+  function meter(ent) {
+    if (!entidades.includes(ent)) entidades.push(ent);
+    ent.malla.visible = true;
+  }
+
   // Cambia la malla de una entidad (por ejemplo al elegir otro personaje)
   function cambiarMalla(ent, malla) {
     if (ent.malla) {
@@ -103,7 +118,10 @@ function crearCombate(ctx) {
     if (!ent || !ent.vivo) return;
     const antes = ent.carga;
     ent.carga = Math.min(1, ent.carga + fraccion);
-    if (antes < 1 && ent.carga >= 1 && ent.esJugador) Sonido.sfx.superLista();
+    if (antes < 1 && ent.carga >= 1) {
+      if (ent.esJugador) Sonido.sfx.superLista();
+      if (ent.alSuperLista) ent.alSuperLista(); // Modo Fiesta: avisa al celular
+    }
   }
 
   function hacerDaño(objetivo, cantidad, atacante, esSuper = false) {
@@ -123,9 +141,12 @@ function crearCombate(ctx) {
     objetivo.tSinCombate = 0;
     if (atacante) atacante.tSinCombate = 0;
     objetivo.tFlash = 0.12;
-    if (objetivo.esJugador || (atacante && atacante.esJugador)) {
-      numero(objetivo, cantidad, objetivo.esJugador ? 'recibido' : 'daño');
+    // Números flotantes solo para personas (no entre bots)
+    if (objetivo.esHumano || (atacante && atacante.esHumano)) {
+      numero(objetivo, cantidad, objetivo.esHumano ? 'recibido' : 'daño');
     }
+    // Modo Fiesta: el celular de esa persona vibra
+    if (objetivo.alDaño) objetivo.alDaño(cantidad, objetivo.vida <= 0);
     lanzarParticulas(objetivo.pos.x, 1, objetivo.pos.z, 0xffffff, 6, 4, 9, 0.4);
     if (objetivo.esJugador) Sonido.sfx.dañoRecibido();
     else if (atacante && atacante.esJugador) Sonido.sfx.impacto();
@@ -137,7 +158,7 @@ function crearCombate(ctx) {
     const real = Math.min(cantidad, objetivo.vidaMax - objetivo.vida);
     objetivo.vida += real;
     if (curador && !esSuper) cargarSuper(curador, real / SP.curaParaCargar);
-    if (objetivo.esJugador || (curador && curador.esJugador)) numero(objetivo, real, 'cura');
+    if (objetivo.esHumano || (curador && curador.esHumano)) numero(objetivo, real, 'cura');
   }
 
   function eliminar(ent, atacante, esSuper = false) {
@@ -209,6 +230,7 @@ function crearCombate(ctx) {
       e.cdAtaque = 0;
       e.tSinCombate = 99;
       e.eliminaciones = 0;
+      e.puntos = 0;
       e.carga = 0;
       e.escudo = 0;
       e.tTurbo = 0;
@@ -716,7 +738,7 @@ function crearCombate(ctx) {
       e.barraRelleno.style.width = `${f * 100}%`;
       e.barra.classList.toggle('baja', f < 0.35);
       e.barra.classList.toggle('protegido', e.proteccion > 0);
-      if (e.esJugador) e.barraNum.textContent = Math.ceil(e.vida);
+      if (e.esHumano) e.barraNum.textContent = Math.ceil(e.vida);
       e.barra.classList.toggle('con-escudo', e.escudo > 0);
       e.barra.classList.toggle('super-lista', e.carga >= 1);
     }
@@ -734,7 +756,7 @@ function crearCombate(ctx) {
   }
 
   return {
-    entidades, registrar, quitar, cambiarMalla, atacar, actualizar, usarSuper, cargarSuper, restaurarTodos,
+    entidades, registrar, quitar, sacar, meter, cambiarMalla, atacar, actualizar, usarSuper, cargarSuper, restaurarTodos,
     actualizarBarras, reiniciarTodos, hacerDaño, curar, proyectiles
   };
 }

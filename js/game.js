@@ -107,6 +107,7 @@
   const jugador = {
     malla: Personajes.crearModelo('nova', COL.azul),
     esJugador: true,
+    esHumano: true,      // lo controla una persona (los bots lo tienen en cuenta)
     personaje: 'nova',
     pos: new THREE.Vector3(),
     vel: new THREE.Vector3(),
@@ -279,6 +280,8 @@
     if (ent === jugador) {
       desbloquear('super');
       mostrarPista(`¡${su.nombre}!`);
+    } else if (modoFiesta) {
+      mostrarPista(`¡${ent.nombre} usó ${su.nombre}!`);
     } else if (ent.equipo !== jugador.equipo && Math.hypot(ent.pos.x - jugador.pos.x, ent.pos.z - jugador.pos.z) < 12) {
       mostrarPista(`¡${ent.nombre} usó ${su.nombre}!`);
     }
@@ -359,6 +362,7 @@
   // ==========================================================
   // estados: 'menu' | 'jugando' | 'canasta' | 'pausa' | 'fin'
   let estado = 'menu';
+  let modoFiesta = false; // true mientras estamos en el Modo Fiesta (sala o partido)
   let estadoAntesPausa = 'jugando';
   let tiempoTotal = 0;
 
@@ -697,6 +701,7 @@
 
   // Si el jugador cambia de pestaña, el juego se pausa solo
   window.addEventListener('blur', () => {
+    if (modoFiesta) return; // en el Modo Fiesta la pantalla no se toca: no se pausa sola
     if (estado === 'jugando' || estado === 'canasta' || estado === 'cuenta') alternarPausa();
   });
 
@@ -1170,7 +1175,11 @@
       mostrarPista('¡Asistencia!');
     }
     balon.asistente = null;
-    if (balon.tiroDe && balon.tiroDe.equipo === equipoQueAnota) combate.cargarSuper(balon.tiroDe, CONFIG.super.porCanasta);
+    if (balon.tiroDe && balon.tiroDe.equipo === equipoQueAnota) {
+      combate.cargarSuper(balon.tiroDe, CONFIG.super.porCanasta);
+      balon.tiroDe.puntos = (balon.tiroDe.puntos || 0) + puntos; // tabla del Modo Fiesta
+      if (balon.tiroDe.alAnotar) balon.tiroDe.alAnotar(puntos);
+    }
 
     // El balón cae por la red
     balon.vel.set(0, -2, 0);
@@ -1197,7 +1206,9 @@
     lanzarParticulas(aro.x, aro.y, aro.z, COL.dorado, puntos === 3 ? 30 : 10, 6);
     Sonido.sfx.canasta(puntos === 3);
     const texto = conFuego ? `+${puntos} ¡EN LLAMAS!` : puntos === 3 ? '+3 ¡TRIPLE!' : `+${puntos}`;
-    mostrarAviso(texto, equipoQueAnota === 'azul' ? 'Canasta del equipo azul' : 'Canasta del equipo rojo', equipoQueAnota);
+    let sub = equipoQueAnota === 'azul' ? 'Canasta del equipo azul' : 'Canasta del equipo rojo';
+    if (modoFiesta && balon.tiroDe && balon.tiroDe.equipo === equipoQueAnota) sub = `Canasta de ${balon.tiroDe.nombre}`;
+    mostrarAviso(texto, sub, equipoQueAnota);
     if (conFuego) lanzarParticulas(aro.x, aro.y, aro.z, 0xff7a1a, 40, 8);
     actualizarHUD();
 
@@ -1226,6 +1237,7 @@
   // Jugador a su lado y balón cayendo en el centro
   function colocarEnInicio() {
     bots.colocar();
+    if (modoFiesta) fiesta.colocar();
     jugador.pos.set(C.aparicionesAzul[0].x, 0, C.aparicionesAzul[0].z);
     jugador.malla.position.copy(jugador.pos);
     jugador.vel.set(0, 0, 0);
@@ -1338,6 +1350,25 @@
     }
   }
 
+  // Modo Fiesta: cámara fija que ve toda la cancha (se corre un poco con el balón)
+  function camaraFiesta(dt) {
+    const FC = CONFIG.fiesta.camara;
+    const k = 1 - Math.exp(-2.5 * dt);
+    const tx = balon.pos.x * FC.seguirBalon;
+    camera.position.x += (tx - camera.position.x) * k;
+    camera.position.y += (FC.altura - camera.position.y) * k;
+    camera.position.z += (FC.distancia - camera.position.z) * k;
+    camMira.x += (tx - camMira.x) * k;
+    camMira.y += (0 - camMira.y) * k;
+    camMira.z += (0 - camMira.z) * k;
+    camera.lookAt(camMira);
+    if (sacudida > 0.01) {
+      camera.position.x += (Math.random() - 0.5) * sacudida;
+      camera.position.y += (Math.random() - 0.5) * sacudida;
+      sacudida *= Math.pow(0.02, dt);
+    }
+  }
+
   let sacudida = 0;
   function sacudirCamara(fuerza) {
     sacudida = Math.max(sacudida, fuerza);
@@ -1354,6 +1385,12 @@
   // 11. AYUDAS VISUALES (mira y trayectoria)
   // ==========================================================
   function actualizarAyudasVisuales() {
+    if (modoFiesta) {
+      // En el Modo Fiesta cada persona tiene sus propios indicadores (fiesta.js)
+      [mira, guiaMira, trayectoria, indicadorTira, indicadorArea, indicadorSector, superTira, superArea, superCentro, anilloSuperListo]
+        .forEach((m) => { m.visible = false; });
+      return;
+    }
     const jugando = (estado === 'jugando' || estado === 'canasta') && apuntandoAhora();
     const conBalon = jugando && balon.portador === jugador;
     mira.visible = jugando;
@@ -1639,7 +1676,8 @@
   // ==========================================================
   // 13. FLUJO DEL PARTIDO
   // ==========================================================
-  function iniciarPartido() {
+  // fiestaOpc (Modo Fiesta): { ocupados, rellenar, personas } → los bots solo llenan lugares libres
+  function iniciarPartido(fiestaOpc) {
     partido.tiempo = CONFIG.partido.duracion;
     partido.prorroga = false;
     partido.marcador.azul = 0;
@@ -1647,13 +1685,14 @@
     partido.stats = { tiros: 0, canastas: 0, triples: 0, puntos: 0, eliminaciones: 0, poderes: 0, robos: 0, asistencias: 0 };
     partido.peorDiferencia = 0;
     partido.racha = 0;
-    bots.preparar(jugador.personaje);
+    bots.preparar(fiestaOpc || jugador.personaje);
     combate.reiniciarTodos();
     poderes.reiniciar();
     jugador.impulsoCd = 0;
     jugador.cdRobo = 0;
     colocarEnInicio();
-    camera.position.set(0, CONFIG.camara.altura, CONFIG.camara.distancia);
+    if (modoFiesta) camera.position.set(0, CONFIG.fiesta.camara.altura, CONFIG.fiesta.camara.distancia);
+    else camera.position.set(0, CONFIG.camara.altura, CONFIG.camara.distancia);
     camMira.set(0, 0, 0);
     // Empieza con la cuenta regresiva 3, 2, 1, ¡YA!
     estado = 'cuenta';
@@ -1662,6 +1701,13 @@
     partido.ultimoSegundo = 0;
     mostrarPantalla(null);
     ui.hud.classList.add('visible');
+    if (fiestaOpc) {
+      const n = fiestaOpc.personas;
+      partido.infoInicio = `${n} ${n === 1 ? 'persona' : 'personas'} · Primero a ${CONFIG.partido.puntosParaGanar}`;
+      mostrarPista(`${mapa.icono} ${mapa.nombre}: ${mapa.efecto}${fiestaOpc.rellenar ? ` · bots nivel ${nombreNivel(n)}` : ''}`);
+      actualizarHUD();
+      return;
+    }
     elTactil.classList.add('visible');
     const companeros = bots.lista.filter((b) => b.equipo === 'azul').map((b) => b.nombre).join(' y ');
     partido.infoInicio = `Tus compañeros: ${companeros} · Primero a ${CONFIG.partido.puntosParaGanar}`;
@@ -1690,6 +1736,7 @@
     estado = 'fin';
     Sonido.sfx.bocina();
     const { azul, rojo } = partido.marcador;
+    if (modoFiesta) { finFiesta(azul, rojo); return; }
     const s = partido.stats;
     let titulo = '¡EMPATE!';
     let clase = '';
@@ -1732,6 +1779,25 @@
       mostrarPantalla('pantalla-fin');
     }, 1200);
   }
+
+  // Resultado del Modo Fiesta: tabla con cada persona y vuelta automática a la sala
+  function finFiesta(azul, rojo) {
+    const ganador = azul > rojo ? 'azul' : rojo > azul ? 'rojo' : null;
+    const tabla = fiesta.alTerminar(ganador);
+    $('fin-titulo').textContent = ganador ? `¡GANA EL EQUIPO ${ganador.toUpperCase()}!` : '¡EMPATE!';
+    $('fin-titulo').className = ganador || '';
+    $('fin-marcador').innerHTML = `<span class="azul">${azul}</span> - <span class="rojo">${rojo}</span>`;
+    $('fin-info').textContent = `${mapa.icono} ${mapa.nombre} · Modo Fiesta`;
+    const mejor = tabla[0] && tabla[0].puntos > 0 ? tabla[0].num : 0;
+    $('fin-stats').innerHTML = tabla.map((f) => `
+      <li class="fila-fiesta ${f.equipo}"><span>P${f.num} ${escaparHTML(f.nombre)} · ${Personajes.info[f.personaje].nombre}${f.num === mejor ? ' ⭐' : ''}</span>
+      <b>${f.puntos} pts · ${f.elims} elim.</b></li>`).join('');
+    setTimeout(() => {
+      ui.hud.classList.remove('visible');
+      if (estado === 'fin') mostrarPantalla('pantalla-fin');
+    }, 1200);
+  }
+  const escaparHTML = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function alternarPausa() {
     if (estado === 'jugando' || estado === 'canasta' || estado === 'cuenta') {
@@ -1793,6 +1859,8 @@
   botonTactil('btn-pantalla', () => alternarPantallaCompleta());
 
   function irAlMenu() {
+    // En el Modo Fiesta "abandonar" vuelve a la sala (los celulares siguen conectados)
+    if (modoFiesta) { fiesta.volverASala(); return; }
     estado = 'menu';
     ui.hud.classList.remove('visible');
     elTactil.classList.remove('visible');
@@ -2051,6 +2119,9 @@
       Sonido.sfx.click();
       switch (btn.dataset.accion) {
         case 'jugar': abrirSeleccion(); break;
+        case 'fiesta': abrirFiesta(); break;
+        case 'fiesta-empezar': fiesta.empezar(); break;
+        case 'fiesta-salir': salirFiesta(); break;
         case 'confirmar-personaje': aplicarPersonaje(seleccionActual); abrirMapas(); break;
         case 'volver-personajes': abrirSeleccion(); break;
         case 'confirmar-mapa':
@@ -2077,6 +2148,66 @@
 
   $('version').textContent = CONFIG.version;
   $('meta-puntos').textContent = `PRIMERO A ${CONFIG.partido.puntosParaGanar}`;
+
+  // ==========================================================
+  // 13e. MODO FIESTA (una pantalla + celulares como control)
+  // ==========================================================
+  const fiesta = crearFiesta({
+    scene, combate, balon, aros, poderes, resolverColisiones, lanzarBalonA, pasar, intentarRobo, bajoPresion, lanzarParticulas,
+    partido,
+    mapa: () => mapa,
+    estado: () => estado,
+    tiempo: () => tiempoTotal,
+    iniciar: (o) => {
+      cambiarMapa(o.mapaId);
+      iniciarPartido(o);
+    },
+    mostrarSala: mostrarSalaFiesta
+  });
+
+  // Fondo de la sala: cancha vacía con el balón en el centro
+  function mostrarSalaFiesta() {
+    estado = 'menu';
+    ui.hud.classList.remove('visible');
+    bots.preparar({ ocupados: [], rellenar: false });
+    poderes.reiniciar();
+    balon.portador = null;
+    balon.pos.set(0, B.radio, 0);
+    balon.vel.set(0, 0, 0);
+    balon.malla.position.copy(balon.pos);
+    mostrarPantalla('pantalla-fiesta');
+  }
+
+  function abrirFiesta() {
+    modoFiesta = true;
+    document.body.classList.add('fiesta');
+    combate.sacar(jugador); // en la pantalla no juega nadie: todos usan su celular
+    mostrarSalaFiesta();
+    fiesta.abrir();
+  }
+
+  function salirFiesta() {
+    fiesta.cerrar();
+    modoFiesta = false;
+    document.body.classList.remove('fiesta');
+    combate.meter(jugador);
+    bots.preparar(jugador.personaje);
+    colocarEnInicio();
+    balon.pos.set(0, B.radio, 0);
+    balon.malla.position.copy(balon.pos);
+    irAlMenu();
+  }
+
+  // Ajustes de la sala desde la pantalla
+  [...CONFIG.mapas.orden, 'azar'].forEach((id) => {
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = id === 'azar' ? '🎲 Al azar' : `${CONFIG.mapas[id].icono} ${CONFIG.mapas[id].nombre}`;
+    $('fiesta-mapa').appendChild(o);
+  });
+  $('fiesta-mapa').addEventListener('change', (e) => fiesta.cambiarAjuste({ mapa: e.target.value }));
+  $('fiesta-bots-si').addEventListener('click', () => fiesta.cambiarAjuste({ bots: true }));
+  $('fiesta-bots-no').addEventListener('click', () => fiesta.cambiarAjuste({ bots: false }));
 
   // ==========================================================
   // 14. BUCLE PRINCIPAL
@@ -2135,15 +2266,18 @@
         partido.tCanasta -= dt;
         if (partido.tCanasta <= 0) reiniciarPosesion();
       }
-      actualizarApuntado();
-      if (estado !== 'cuenta') moverJugador(dt);
+      if (!modoFiesta) {
+        actualizarApuntado();
+        if (estado !== 'cuenta') moverJugador(dt);
+      }
       bots.actualizar(dt, estado === 'jugando');
       combate.actualizar(dt);
       actualizarLava(dt);
       poderes.actualizar(dt, estado === 'jugando', tiempoTotal);
       actualizarBalon(dt);
       animarAros(dt);
-      actualizarCamara(dt);
+      if (modoFiesta) camaraFiesta(dt);
+      else actualizarCamara(dt);
       actualizarAyudasVisuales();
       actualizarHUD();
     } else if (estado === 'menu') {
@@ -2154,6 +2288,9 @@
       actualizarBalon(dt);
       animarAros(dt);
     }
+
+    // Modo Fiesta: personas, sala y envío de datos a los celulares
+    if (modoFiesta) fiesta.actualizar(dt, (estado === 'jugando' || estado === 'canasta') && !vertical);
 
     // Vista previa 3D en la pantalla de elegir personaje
     if (vistaPrevia && $('pantalla-personajes').classList.contains('activa')) vistaPrevia.dibujar(tiempoTotal);

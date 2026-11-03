@@ -26,26 +26,39 @@ function crearBots(ctx) {
   // CREAR LOS BOTS
   // ==========================================================
   // Reparte al azar los personajes que el jugador no eligió (sin repetir)
-  function preparar(idJugador) {
+  // Carril de cada lugar de aparición (0 = centro, -1 = arriba, 1 = abajo)
+  const CARRILES = [0, -1, 1];
+  let nivelFiesta = null; // en el Modo Fiesta todos los bots usan el mismo nivel
+
+  // Un jugador: preparar('nova') → 2 compañeros y 3 rivales con los demás personajes.
+  // Modo Fiesta: preparar({ ocupados: [{ personaje, equipo }], rellenar, personas })
+  //   → los bots solo llenan los lugares libres (o ninguno si rellenar = false).
+  function preparar(opciones) {
     lista.forEach((b) => { combate.quitar(b); scene.remove(b.malla); });
     lista = [];
-    const resto = Personajes.lista.filter((id) => id !== idJugador);
+    const fiesta = typeof opciones === 'object';
+    const ocupados = fiesta ? opciones.ocupados : [{ personaje: opciones, equipo: 'azul' }];
+    nivelFiesta = fiesta ? BOT.rivales[Math.max(1, Math.min(5, opciones.personas || 1))] : null;
+    if (fiesta && !opciones.rellenar) return lista;
+
+    const resto = Personajes.lista.filter((id) => !ocupados.some((o) => o.personaje === id));
     for (let i = resto.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [resto[i], resto[j]] = [resto[j], resto[i]];
     }
-    // 2 compañeros (carriles arriba y abajo; el jugador va por el centro)
-    crear(resto[0], 'azul', C.aparicionesAzul[1], -1);
-    crear(resto[1], 'azul', C.aparicionesAzul[2], 1);
-    // 3 rivales
-    crear(resto[2], 'rojo', C.aparicionesRojo[0], 0);
-    crear(resto[3], 'rojo', C.aparicionesRojo[1], -1);
-    crear(resto[4], 'rojo', C.aparicionesRojo[2], 1);
+    // Cada equipo tiene 3 lugares: las personas toman los primeros, los bots el resto
+    ['azul', 'rojo'].forEach((eq) => {
+      const apariciones = eq === 'azul' ? C.aparicionesAzul : C.aparicionesRojo;
+      const personas = ocupados.filter((o) => o.equipo === eq).length;
+      for (let i = personas; i < 3 && resto.length; i++) crear(resto.shift(), eq, apariciones[i], CARRILES[i]);
+    });
     return lista;
   }
 
-  // Los rivales del jugador son el equipo rojo; sus compañeros, el azul
+  // Un jugador: los rivales (rojo) dependen de cuántos jugadores reales hay.
+  // Modo Fiesta: todos los bots usan el nivel según las personas conectadas.
   function nivelPara(equipo) {
+    if (nivelFiesta) return nivelFiesta;
     if (equipo === 'azul') return BOT.aliados;
     const n = Math.max(1, Math.min(5, BOT.jugadoresReales));
     return BOT.rivales[n];
@@ -138,7 +151,7 @@ function crearBots(ctx) {
       const miD = dist(b.pos, puntoBalon);
       // Voy por él si soy el más cercano de mi equipo (el jugador cuenta)
       const companeroMasCerca = masCercano(aliados, puntoBalon);
-      if (!companeroMasCerca.e || miD < companeroMasCerca.d * 1.1 || (companeroMasCerca.e.esJugador && miD < 4)) {
+      if (!companeroMasCerca.e || miD < companeroMasCerca.d * 1.1 || (companeroMasCerca.e.esHumano && miD < 4)) {
         b.destino.set(puntoBalon.x, 0, puntoBalon.z);
       } else {
         // Apoyo: entre el balón y mi aro, por mi carril
@@ -150,7 +163,7 @@ function crearBots(ctx) {
       b.destino.set(aroA.x - signo * 5.5, 0, b.carril * 4.2);
     } else {
       // ---------- EL RIVAL TIENE EL BALÓN: DEFENDER ----------
-      const defensorMasCerca = masCercano([b, ...aliados.filter((a) => !a.esJugador)], portador.pos);
+      const defensorMasCerca = masCercano([b, ...aliados.filter((a) => !a.esHumano)], portador.pos);
       // Con menos presión, a veces no persiguen y solo cubren su aro
       if (defensorMasCerca.e === b && b.persigue) {
         b.destino.set(portador.pos.x, 0, portador.pos.z);

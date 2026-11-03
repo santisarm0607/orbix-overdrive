@@ -6,7 +6,7 @@
    ========================================================== */
 
 const CONFIG = {
-  version: 'v0.8',
+  version: 'v0.9',
 
   // ---------- Partido ----------
   partido: {
@@ -249,6 +249,23 @@ const CONFIG = {
       iman:    { nombre: 'Imán',           color: 0xc77dff, duracion: 8, radioRecogida: 2.6 },
       recarga: { nombre: 'Recarga',        color: 0xffd23f, carga: 0.5 }
     }
+  },
+
+  // ---------- Modo Fiesta (celulares como control) ----------
+  red: {
+    prefijo: 'orbix-overdrive-sala-', // nombre interno de la sala en el servidor PeerJS
+    // null = servidor gratis de PeerJS en internet. Para un servidor propio:
+    // { host: 'localhost', port: 9000, path: '/', secure: false }
+    servidor: null,
+    stun: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'],
+    envioControl: 50,          // ms entre cada envío de los botones del celular
+    envioEstado: 120,          // ms entre cada envío de la vida y la súper al celular
+    maxJugadores: 6
+  },
+  fiesta: {
+    camara: { altura: 21, distancia: 14, seguirBalon: 0.15 }, // cámara que muestra toda la cancha
+    cuentaInicio: 5,           // segundos de espera cuando todos están listos
+    volverSala: 10             // segundos en el resultado antes de volver a la sala
   },
 
   // ---------- Pase y robo ----------
