@@ -465,6 +465,11 @@ Idea de SantiSarm: poder escoger con cuántos bots jugar. Se eligió por **tama�
 
 ---
 
+## v1.3.2 — Botones de la sala ordenados (6 nov 2026)
+- En la sala (Online y Modo Fiesta) los botones "2 vs 2" y "3 vs 3" se partían en dos líneas. Ahora van en una sola línea y del mismo tamaño.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
