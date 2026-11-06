@@ -459,6 +459,12 @@ Idea de SantiSarm: poder escoger con cuántos bots jugar. Se eligió por **tama�
 
 ---
 
+## v1.3.1 — Que el celular no mezcle archivos viejos y nuevos (6 nov 2026)
+- En el celular el 1 vs 1 no funcionaba aunque el código estaba bien: GitHub Pages deja que el navegador guarde los archivos hasta 10 minutos, y el celular cargó el `index.html` nuevo (con los botones) con el `game.js` viejo (que no los conocía).
+- Ahora `index.html` y `control.html` piden cada archivo con la versión (`js/game.js?v=1.3.1`). Al subir una versión nueva se cambia ese número y el celular descarga todo junto.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
