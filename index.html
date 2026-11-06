@@ -95,14 +95,31 @@
       <p class="lema">Baloncesto galáctico 3 vs 3</p>
       <div class="botones">
         <button data-accion="jugar" class="principal">JUGAR</button>
-        <button data-accion="online" class="online-btn">🌐 ONLINE</button>
-        <button data-accion="fiesta" class="fiesta-btn">📱 MODO FIESTA</button>
         <button data-accion="controles">CONTROLES</button>
         <button data-accion="logros">LOGROS</button>
         <button data-accion="creditos">CRÉDITOS</button>
         <button data-accion="ajustes">AJUSTES</button>
       </div>
       <p class="version">Versión <span id="version"></span></p>
+    </div>
+  </div>
+
+  <!-- ===================== ¿CÓMO QUIERES JUGAR? ===================== -->
+  <div id="pantalla-modo" class="pantalla">
+    <div class="panel panel-modo">
+      <h2>¿CÓMO QUIERES JUGAR?</h2>
+      <div class="modos">
+        <button class="modo solo" data-accion="modo-solo">
+          <span class="icono">🤖</span><b>SOLO</b><small>Tú y 2 bots contra 3 bots</small>
+        </button>
+        <button class="modo online" data-accion="online">
+          <span class="icono">🌐</span><b>ONLINE</b><small>Cada uno en su pantalla, desde su casa · hasta 6</small>
+        </button>
+        <button class="modo fiesta" data-accion="fiesta">
+          <span class="icono">📱</span><b>MODO FIESTA</b><small>Una pantalla y los celulares de control · hasta 6</small>
+        </button>
+      </div>
+      <div class="botones fila"><button data-accion="volver">VOLVER</button></div>
     </div>
   </div>
 
@@ -126,7 +143,7 @@
       </div>
       <p id="on-msg" class="fiesta-msg"></p>
       <p class="online-nota">Necesitan internet. Funciona desde la página publicada (GitHub Pages), no dentro del artefacto.</p>
-      <div class="botones fila"><button data-accion="volver">VOLVER</button></div>
+      <div class="botones fila"><button data-accion="volver-modo">VOLVER</button></div>
     </div>
   </div>
 
@@ -190,7 +207,7 @@
         </div>
       </div>
       <div class="botones fila">
-        <button data-accion="volver">VOLVER</button>
+        <button data-accion="volver-modo">VOLVER</button>
         <button data-accion="confirmar-personaje" class="principal">SIGUIENTE</button>
       </div>
     </div>

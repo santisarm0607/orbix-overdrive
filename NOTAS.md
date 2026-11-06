@@ -421,6 +421,16 @@ Con un servidor PeerJS local, un anfitrión y dos jugadores en navegadores disti
 
 ---
 
+## v1.1 — Menú más simple (6 nov 2026)
+Idea de SantiSarm: que el menú principal no tenga tantas opciones.
+- **Menú principal:** JUGAR, Controles, Logros, Créditos y Ajustes. Sin la barra blanca para bajar (v1.0.1).
+- **El orden ahora es:** JUGAR → **¿Cómo quieres jugar?** (Solo, Online o Modo Fiesta) → personaje → mapa → partido.
+  - **Solo:** eliges personaje y luego mapa.
+  - **Online y Modo Fiesta:** cada uno elige su personaje en la sala, y el anfitrión (o la pantalla) elige el mapa.
+- Los botones VOLVER y SALIR regresan a "¿Cómo quieres jugar?".
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -443,4 +453,5 @@ Con un servidor PeerJS local, un anfitrión y dos jugadores en navegadores disti
 - [x] **v0.9.1** — Sin botón Pase/Robo en el celular, puntería visible en la TV.
 - [x] **v0.9.2** — Correcciones de las pruebas automáticas (apariciones, colisiones, salto de Kraag, nombre del jugador).
 - [x] **v1.0** — **Online**: cada uno en su pantalla, con sala, código y anfitrión.
+- [x] **v1.1** — Menú más simple: JUGAR → modo → personaje → mapa.
 - [ ] **Futuro** — Rival League (ranking), servidor TURN para redes difíciles.

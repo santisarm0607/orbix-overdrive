@@ -2171,7 +2171,9 @@
       Sonido.iniciarMusica();
       Sonido.sfx.click();
       switch (btn.dataset.accion) {
-        case 'jugar': abrirSeleccion(); break;
+        case 'jugar': mostrarPantalla('pantalla-modo'); break;   // 1. ¿cómo quieres jugar?
+        case 'modo-solo': abrirSeleccion(); break;                // 2. personaje → 3. mapa → partido
+        case 'volver-modo': mostrarPantalla('pantalla-modo'); break;
         case 'fiesta': abrirFiesta(); break;
         case 'fiesta-empezar': fiesta.empezar(); break;
         case 'fiesta-salir':
@@ -2275,6 +2277,7 @@
     balon.pos.set(0, B.radio, 0);
     balon.malla.position.copy(balon.pos);
     irAlMenu();
+    mostrarPantalla('pantalla-modo');
   }
 
   // Ajustes de la sala desde la pantalla
@@ -2341,6 +2344,7 @@
     document.body.classList.remove('online', 'online-host');
     reiniciarFondoMenu();
     irAlMenu();
+    mostrarPantalla('pantalla-modo');
   }
 
   // Unirse a la sala de otro
@@ -2390,7 +2394,7 @@
     elTactil.classList.remove('visible');
     reiniciarFondoMenu();
     if (motivo && estaba) abrirPantallaOnline('', motivo);
-    else mostrarPantalla('pantalla-titulo');
+    else mostrarPantalla('pantalla-modo');
   }
 
   // Elegir equipo, personaje y "listo" en la sala online
