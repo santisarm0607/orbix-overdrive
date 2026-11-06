@@ -23,7 +23,8 @@ orbix-overdrive/
 ├── js/bots.js      → inteligencia de los bots (compañeros y rivales)
 ├── js/poderes.js   → orbes de poder que aparecen en la cancha
 ├── js/red.js       → conexión de la pantalla con los celulares (PeerJS)
-├── js/fiesta.js    → Modo Fiesta: sala, personajes de cada persona y datos al celular
+├── js/fiesta.js    → sala (Modo Fiesta y online), personajes de cada persona y datos al celular
+├── js/online.js    → online: fotos del partido del anfitrión y conexión del que se une
 ├── js/control.js   → lógica del control en el celular
 ├── js/game.js      → lógica del partido, controles, cámara, HUD, menús y logros
 └── NOTAS.md        → este archivo
@@ -390,6 +391,36 @@ Lo que se probó y funciona: pausa, abandonar, jugar otra vez, cambiar de person
 
 ---
 
+## v1.0 — ONLINE: cada uno en su pantalla (3 nov 2026)
+
+### Cómo se juega
+1. Menú → **🌐 ONLINE** → escribe tu nombre.
+2. **Crear sala:** eres el anfitrión. Sale un código de 4 letras (y un QR). Tú también juegas.
+3. **Unirse:** los demás escriben el código (o abren el enlace `…/index.html#sala=CÓDIGO`, que ya trae el código puesto).
+4. En la sala cada uno elige **equipo** y **personaje** en su pantalla y toca **¡LISTO!**. El anfitrión (👑) elige el mapa y si hay bots. Cuando todos están listos, empieza solo; el anfitrión también puede tocar EMPEZAR YA.
+5. Cada uno juega con sus controles de siempre (teclado y mouse o táctil) y su cámara sigue a su personaje.
+6. Al terminar se ve la tabla de todos y vuelven a la sala para jugar otra.
+
+### Cómo funciona (para el código)
+- **El anfitrión manda.** Su juego simula todo (movimiento, golpes, vida, balón, bots, poderes). Es la misma sala del Modo Fiesta (`fiesta.js`), pero el anfitrión también juega con su personaje normal.
+- **20 fotos por segundo.** El anfitrión manda una "foto" (`online.js`) con la posición, giro, vida, súper y poderes de cada personaje, el balón, el marcador y los orbes, junto con los **eventos** (ataques, súper, tiros, pases, robos, canastas).
+- **El que se une** manda sus controles (como el celular del Modo Fiesta) y dibuja el partido:
+  - A los demás los dibuja **100 ms en el pasado**, mezclando dos fotos, para que se vean suaves.
+  - A **su propio personaje** lo mueve **al instante** (predicción) y lo va corrigiendo si se separa de donde dice el anfitrión.
+  - Los ataques y súper se repiten en su pantalla solo como efecto (**modo espejo** de `combate.js`); el daño lo decide el anfitrión.
+  - La lluvia de meteoritos usa una **semilla** para caer igual en todas las pantallas.
+- Si alguien se desconecta, su personaje se queda quieto y puede volver a entrar con el mismo equipo. Si el anfitrión cierra, a los demás les sale "El anfitrión cerró la sala".
+- Si entras con un partido en curso, lo ves como espectador y juegas en el siguiente.
+
+### Pruebas
+Con un servidor PeerJS local, un anfitrión y dos jugadores en navegadores distintos: sala, bloqueo de personajes, líder, partido completo con jugadores al azar (marcador y tiempo iguales en las 3 pantallas, la posición predicha a menos de 0,4 m de la real), resultado, vuelta a la sala, salir y cerrar la sala.
+
+### A tener en cuenta
+- Se conecta directo entre los equipos (WebRTC). En algunas redes de datos móviles o de colegios puede que no conecte; con wifi de casa normalmente sí.
+- El que tenga mejor internet debería ser el anfitrión.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -411,4 +442,5 @@ Lo que se probó y funciona: pausa, abandonar, jugar otra vez, cambiar de person
 - [x] **v0.9** — **Modo Fiesta**: una pantalla y hasta 6 celulares como control (QR, equipos, bots opcionales, vibración).
 - [x] **v0.9.1** — Sin botón Pase/Robo en el celular, puntería visible en la TV.
 - [x] **v0.9.2** — Correcciones de las pruebas automáticas (apariciones, colisiones, salto de Kraag, nombre del jugador).
-- [ ] **Futuro** — Online cada uno en su propio dispositivo, Rival League.
+- [x] **v1.0** — **Online**: cada uno en su pantalla, con sala, código y anfitrión.
+- [ ] **Futuro** — Rival League (ranking), servidor TURN para redes difíciles.

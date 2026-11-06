@@ -94,7 +94,8 @@
       }
     }
   }
-  const aroRival = aros.find((a) => a.equipo === 'rojo'); // el jugador (azul) ataca este aro
+  // Aro al que ataca el jugador (en el online puede estar en el equipo rojo)
+  let aroRival = aros.find((a) => a.equipo === 'rojo');
   // Cada equipo ataca el aro del otro
   const aroQueAtaca = (ent) => aros.find((a) => a.equipo !== ent.equipo);
 
@@ -117,7 +118,8 @@
     impulsoCd: 0,                       // enfriamiento del impulso
     impulsoDir: new THREE.Vector3(),
     cdRobo: 0,
-    animT: 0
+    animT: 0,
+    entrada: { x: 0, z: 0 }             // hacia dónde empuja el stick o las teclas (online: se manda al anfitrión)
   };
   scene.add(jugador.malla);
 
@@ -272,7 +274,9 @@
     alEliminar: alEliminarEntidad,
     alReaparecer: alReaparecerEntidad,
     sacudir: sacudirCamara,
-    alUsarSuper: alUsarSuperEntidad
+    alUsarSuper: alUsarSuperEntidad,
+    // Online: cada ataque, súper o impacto se manda a los demás
+    alAccion: (tipo, ent, x, z, extra) => emitir({ e: tipo, i: ent.netId, x: r2(x), z: r2(z), s: extra })
   });
 
   // Cuando alguien usa su súper
@@ -302,6 +306,7 @@
   const poderes = crearPoderes({ scene, combate, lanzarParticulas, alRecoger: alRecogerPoder });
 
   function alRecogerPoder(ent, tipo, d) {
+    emitir({ e: 'poder', i: ent.netId, k: tipo });
     if (ent === jugador) {
       Sonido.sfx.poder();
       mostrarPista(`¡${d.nombre}!`);
@@ -320,7 +325,7 @@
     const s = CONFIG.personajes[id];
     jugador.vidaMax = jugador.vida = s.vida;
     jugador.nombre = Personajes.info[id].nombre; // antes se quedaba siempre en Nova
-    combate.cambiarMalla(jugador, Personajes.crearModelo(id, COL.azul));
+    combate.cambiarMalla(jugador, Personajes.crearModelo(id, COL[jugador.equipo]));
     jugador.barra.querySelector('.nombre').textContent = Personajes.info[id].nombre;
     prepararIndicador(s.ataque);
     progreso.ultimoPersonaje = id;
@@ -354,8 +359,19 @@
   function alReaparecerEntidad(ent) {
     if (ent === jugador) {
       Sonido.sfx.reaparecer();
-      jugador.malla.rotation.y = Math.PI / 2;
+      jugador.malla.rotation.y = jugador.equipo === 'azul' ? Math.PI / 2 : -Math.PI / 2;
     }
+  }
+
+  // Pone al jugador en un equipo y en uno de sus 3 lugares de salida (online: puede ser rojo)
+  function ponerEquipoJugador(equipo, lugar = 0) {
+    const cambio = jugador.equipo !== equipo;
+    jugador.equipo = equipo;
+    jugador.aparicion = (equipo === 'azul' ? C.aparicionesAzul : C.aparicionesRojo)[lugar] || C.aparicionesAzul[0];
+    aroRival = aros.find((a) => a.equipo !== equipo);
+    jugador.barra.classList.toggle('azul', equipo === 'azul');
+    jugador.barra.classList.toggle('rojo', equipo === 'rojo');
+    if (cambio) combate.cambiarMalla(jugador, Personajes.crearModelo(jugador.personaje, COL[equipo]));
   }
 
   // ==========================================================
@@ -364,6 +380,7 @@
   // estados: 'menu' | 'jugando' | 'canasta' | 'pausa' | 'fin'
   let estado = 'menu';
   let modoFiesta = false; // true mientras estamos en el Modo Fiesta (sala o partido)
+  let online = null;      // 'host' (creó la sala online y juega) | 'cliente' (se unió) | null
   let estadoAntesPausa = 'jugando';
   let tiempoTotal = 0;
 
@@ -457,6 +474,11 @@
   let apuntandoSuperPC = false;
 
   function usarSuperJugador(tx, tz) {
+    if (online === 'cliente') {
+      if (jugador.vivo && jugador.carga >= 1) onlineMod.accion({ a: 'super', px: r2(tx), pz: r2(tz) });
+      else Sonido.sfx.error();
+      return;
+    }
     if (!combate.usarSuper(jugador, tx, tz)) Sonido.sfx.error();
   }
 
@@ -702,7 +724,7 @@
 
   // Si el jugador cambia de pestaña, el juego se pausa solo
   window.addEventListener('blur', () => {
-    if (modoFiesta) return; // en el Modo Fiesta la pantalla no se toca: no se pausa sola
+    if (modoFiesta || online) return; // en partidos en red no se pausa solo
     if (estado === 'jugando' || estado === 'canasta' || estado === 'cuenta') alternarPausa();
   });
 
@@ -736,6 +758,7 @@
   // 7. MOVIMIENTO DEL JUGADOR
   // ==========================================================
   function moverJugador(dt) {
+    jugador.entrada.x = jugador.entrada.z = 0;
     jugador.impulsoCd = Math.max(0, jugador.impulsoCd - dt);
     jugador.cdRobo = Math.max(0, jugador.cdRobo - dt);
     const animar = jugador.malla.userData.animar;
@@ -765,12 +788,14 @@
         iz = (v.y / v.m) * fuerza;
       }
     }
+    jugador.entrada.x = ix;
+    jugador.entrada.z = iz;
 
     if (jugador.impulsoT > 0) {
       // Durante el impulso se mueve rápido en línea recta
       jugador.impulsoT -= dt;
       jugador.vel.set(jugador.impulsoDir.x * J.impulso.velocidad, 0, jugador.impulsoDir.z * J.impulso.velocidad);
-      lanzarParticulas(jugador.pos.x, 0.5, jugador.pos.z, COL.azul, 2, 1, 0, 0.35);
+      lanzarParticulas(jugador.pos.x, 0.5, jugador.pos.z, COL[jugador.equipo], 2, 1, 0, 0.35);
     } else {
       // Aceleración suave hacia la velocidad deseada
       const turbo = Math.max(jugador.tTurbo > 0 ? CONFIG.personajes.zip.super.velocidad : 1, poderes.multVelocidad(jugador));
@@ -832,6 +857,8 @@
     jugador.impulsoT = J.impulso.duracion;
     jugador.impulsoCd = J.impulso.enfriamiento;
     Sonido.sfx.impulso();
+    // Online: el impulso se ve al instante aquí y también se le pide al anfitrión
+    if (online === 'cliente') onlineMod.accion({ a: 'impulso' });
   }
 
   // Empuja un círculo (jugador o balón) fuera de las cajas, postes y bordes
@@ -1086,6 +1113,7 @@
     balon.origen.set(ent.pos.x, 0, ent.pos.z);
     Personajes.animar(ent.malla, 'tiro', ent.personaje);
     Sonido.sfx.tiro();
+    emitir({ e: 'tiro', i: ent.netId });
   }
 
   // Tiro del jugador: va a la mira, con un pequeño error natural
@@ -1128,6 +1156,7 @@
     balon.origen.set(ent.pos.x, 0, ent.pos.z);
     Personajes.animar(ent.malla, 'tiro', ent.personaje);
     Sonido.sfx.pase();
+    emitir({ e: 'pase', i: ent.netId });
   }
 
   // Robo fijo: si estás cerca del que tiene el balón y lo miras, se lo quitas
@@ -1148,6 +1177,7 @@
       combate.cargarSuper(ent, CONFIG.super.porRobo);
       lanzarParticulas(ent.pos.x, 1, ent.pos.z, COL.dorado, 12, 4, 6, 0.5);
       Sonido.sfx.robo();
+      emitir({ e: 'robo', i: ent.netId, v: p.netId });
       if (p === jugador) mostrarPista(`¡${ent.nombre} te robó el balón!`);
       if (ent === jugador) {
         mostrarPista('¡Robo!');
@@ -1217,8 +1247,9 @@
     Sonido.sfx.canasta(puntos === 3);
     const texto = conFuego ? `+${puntos} ¡EN LLAMAS!` : puntos === 3 ? '+3 ¡TRIPLE!' : `+${puntos}`;
     let sub = equipoQueAnota === 'azul' ? 'Canasta del equipo azul' : 'Canasta del equipo rojo';
-    if (modoFiesta && balon.tiroDe && balon.tiroDe.equipo === equipoQueAnota) sub = `Canasta de ${balon.tiroDe.nombre}`;
+    if ((modoFiesta || online) && balon.tiroDe && balon.tiroDe.equipo === equipoQueAnota) sub = `Canasta de ${balon.tiroDe.nombre}`;
     mostrarAviso(texto, sub, equipoQueAnota);
+    emitir({ e: 'canasta', a: aro.equipo, p: puntos, eq: equipoQueAnota, tx: texto, sb: sub, f: conFuego ? 1 : 0 });
     if (conFuego) lanzarParticulas(aro.x, aro.y, aro.z, 0xff7a1a, 40, 8);
     actualizarHUD();
 
@@ -1247,13 +1278,14 @@
   // Jugador a su lado y balón cayendo en el centro
   function colocarEnInicio() {
     bots.colocar();
-    if (modoFiesta) fiesta.colocar();
-    jugador.pos.set(C.aparicionesAzul[0].x, 0, C.aparicionesAzul[0].z);
+    if (modoFiesta || online === 'host') fiesta.colocar();
+    const ap = jugador.aparicion || C.aparicionesAzul[0];
+    jugador.pos.set(ap.x, 0, ap.z);
     jugador.malla.position.copy(jugador.pos);
     jugador.vel.set(0, 0, 0);
     jugador.impulsoT = 0;
-    jugador.dir.set(1, 0, 0);
-    jugador.malla.rotation.y = Math.PI / 2;
+    jugador.dir.set(jugador.equipo === 'azul' ? 1 : -1, 0, 0);
+    jugador.malla.rotation.y = jugador.equipo === 'azul' ? Math.PI / 2 : -Math.PI / 2;
     balon.portador = null;
     balon.pos.set(0, 4, 0);
     balon.vel.set(0, 0, 0);
@@ -1280,6 +1312,8 @@
 
   function accionPrincipal() {
     if (!jugador.vivo) return;
+    // Online (te uniste): el anfitrión decide; se manda el punto exacto de la mira
+    if (online === 'cliente') { onlineMod.accion({ a: 'principal', px: r2(puntoMira.x), pz: r2(puntoMira.z) }); return; }
     if (balon.portador === jugador) {
       if (estado === 'jugando') lanzar();
     } else {
@@ -1300,6 +1334,7 @@
 
   function accionSecundaria() {
     if (!jugador.vivo) return;
+    if (online === 'cliente') { onlineMod.accion({ a: 'secundaria' }); return; }
     if (balon.portador === jugador) {
       const receptor = elegirReceptor();
       if (receptor) pasar(jugador, receptor);
@@ -1712,6 +1747,7 @@
     mostrarPantalla(null);
     ui.hud.classList.add('visible');
     if (fiestaOpc) {
+      if (online === 'host') elTactil.classList.add('visible'); // el anfitrión también juega
       const n = fiestaOpc.personas;
       partido.infoInicio = `${n} ${n === 1 ? 'persona' : 'personas'} · Primero a ${CONFIG.partido.puntosParaGanar}`;
       mostrarPista(`${mapa.icono} ${mapa.nombre}: ${mapa.efecto}${fiestaOpc.rellenar ? ` · bots nivel ${nombreNivel(n)}` : ''}`);
@@ -1746,7 +1782,7 @@
     estado = 'fin';
     Sonido.sfx.bocina();
     const { azul, rojo } = partido.marcador;
-    if (modoFiesta) { finFiesta(azul, rojo); return; }
+    if (modoFiesta || online === 'host') { finFiesta(azul, rojo); return; }
     const s = partido.stats;
     let titulo = '¡EMPATE!';
     let clase = '';
@@ -1810,6 +1846,11 @@
   const escaparHTML = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function alternarPausa() {
+    // Online (te uniste): el partido sigue; solo se abre o cierra el menú
+    if (online === 'cliente') {
+      mostrarPantalla($('pantalla-pausa').classList.contains('activa') ? null : 'pantalla-pausa');
+      return;
+    }
     if (estado === 'jugando' || estado === 'canasta' || estado === 'cuenta') {
       estadoAntesPausa = estado;
       estado = 'pausa';
@@ -1870,7 +1911,8 @@
 
   function irAlMenu() {
     // En el Modo Fiesta "abandonar" vuelve a la sala (los celulares siguen conectados)
-    if (modoFiesta) { fiesta.volverASala(); return; }
+    if (modoFiesta || online === 'host') { fiesta.volverASala(); return; }
+    if (online === 'cliente') { salirOnline(); return; }
     estado = 'menu';
     ui.hud.classList.remove('visible');
     elTactil.classList.remove('visible');
@@ -2026,6 +2068,7 @@
   }
 
   function prepararMapaYJugar() {
+    ponerEquipoJugador('azul', 0); // jugando solo siempre eres del equipo azul
     const elegido = progreso.ultimoMapa || 'estacion';
     const orden = CONFIG.mapas.orden;
     const id = elegido === 'azar' ? orden[Math.floor(Math.random() * orden.length)] : elegido;
@@ -2131,7 +2174,14 @@
         case 'jugar': abrirSeleccion(); break;
         case 'fiesta': abrirFiesta(); break;
         case 'fiesta-empezar': fiesta.empezar(); break;
-        case 'fiesta-salir': salirFiesta(); break;
+        case 'fiesta-salir':
+          if (online === 'host') salirOnlineHost();
+          else if (online === 'cliente') salirOnline();
+          else salirFiesta();
+          break;
+        case 'online': abrirPantallaOnline(); break;
+        case 'online-crear': crearSalaOnline(); break;
+        case 'online-unirse': unirseOnline(); break;
         case 'confirmar-personaje': aplicarPersonaje(seleccionActual); abrirMapas(); break;
         case 'volver-personajes': abrirSeleccion(); break;
         case 'confirmar-mapa':
@@ -2172,7 +2222,25 @@
       cambiarMapa(o.mapaId);
       iniciarPartido(o);
     },
-    mostrarSala: mostrarSalaFiesta
+    mostrarSala: mostrarSalaFiesta,
+    // Online: el anfitrión juega con su personaje "jugador"
+    jugadorLocal: jugador,
+    prepararLocal: (j, lugar) => {
+      ponerEquipoJugador(j.equipo, lugar);
+      aplicarPersonaje(j.personaje);
+      jugador.nombre = `P${j.num} ${j.nombre}`;
+      jugador.barra.querySelector('.nombre').textContent = jugador.nombre;
+      jugador.jugadorFiesta = j;
+      return jugador;
+    },
+    soltarLocal: () => {
+      delete jugador.jugadorFiesta;
+      jugador.nombre = Personajes.info[jugador.personaje].nombre;
+      jugador.barra.querySelector('.nombre').textContent = jugador.nombre;
+    },
+    pista: mostrarPista,
+    alEmpezar: () => { if (online === 'host') onlineMod.alEmpezar(); },
+    alReconectar: (id) => { if (online === 'host') onlineMod.alReconectar(id); }
   });
 
   // Fondo de la sala: cancha vacía con el balón en el centro
@@ -2190,6 +2258,7 @@
 
   function abrirFiesta() {
     modoFiesta = true;
+    $('fiesta-titulo').innerHTML = 'MODO FIESTA <small>una pantalla · los celulares son el control</small>';
     document.body.classList.add('fiesta');
     combate.sacar(jugador); // en la pantalla no juega nadie: todos usan su celular
     mostrarSalaFiesta();
@@ -2215,9 +2284,495 @@
     o.textContent = id === 'azar' ? '🎲 Al azar' : `${CONFIG.mapas[id].icono} ${CONFIG.mapas[id].nombre}`;
     $('fiesta-mapa').appendChild(o);
   });
-  $('fiesta-mapa').addEventListener('change', (e) => fiesta.cambiarAjuste({ mapa: e.target.value }));
-  $('fiesta-bots-si').addEventListener('click', () => fiesta.cambiarAjuste({ bots: true }));
-  $('fiesta-bots-no').addEventListener('click', () => fiesta.cambiarAjuste({ bots: false }));
+  $('fiesta-mapa').addEventListener('change', (e) => ajusteSala({ mapa: e.target.value }));
+  $('fiesta-bots-si').addEventListener('click', () => ajusteSala({ bots: true }));
+  $('fiesta-bots-no').addEventListener('click', () => ajusteSala({ bots: false }));
+
+  // ==========================================================
+  // 13f. ONLINE: cada uno en su pantalla
+  // ==========================================================
+  function r2(v) { return Math.round((v || 0) * 100) / 100; }
+  // El anfitrión manda los eventos a los demás
+  function emitir(ev) { if (online === 'host') onlineMod.emitir(ev); }
+
+  const onlineMod = crearOnline({
+    combate, balon, poderes, partido, fiesta,
+    estado: () => estado,
+    mapaId: () => Object.keys(CONFIG.mapas).find((k) => CONFIG.mapas[k] === mapa),
+    enSala: () => $('pantalla-fiesta').classList.contains('activa'),
+    alBienvenido: mostrarSalaCliente,
+    alInicio: clienteIniciar,
+    alFoto: clienteFoto,
+    alFin: clienteFin,
+    alVolverSala: clienteVolverSala,
+    alSalir: (motivo) => salirOnline(motivo),
+    pista: mostrarPista
+  });
+
+  // ---------- Pantalla ONLINE (crear o unirse) ----------
+  function abrirPantallaOnline(codigo, mensaje) {
+    $('on-nombre').value = progreso.nombreOnline || '';
+    if (codigo) $('on-codigo').value = codigo;
+    $('on-msg').textContent = mensaje || '';
+    $('on-msg').classList.toggle('error', !!mensaje);
+    mostrarPantalla('pantalla-online');
+  }
+
+  function nombreOnline() {
+    const n = $('on-nombre').value.trim().slice(0, 10) || 'Jugador';
+    progreso.nombreOnline = n;
+    guardarProgreso();
+    return n;
+  }
+
+  // Crear sala: eres el anfitrión y también juegas
+  function crearSalaOnline() {
+    const nombre = nombreOnline();
+    online = 'host';
+    document.body.classList.add('online', 'online-host');
+    $('fiesta-titulo').innerHTML = 'SALA ONLINE <small>tú eres el anfitrión · comparte el código</small>';
+    mostrarSalaFiesta();
+    fiesta.abrir(nombre);
+  }
+
+  function salirOnlineHost() {
+    fiesta.cerrar();
+    online = null;
+    document.body.classList.remove('online', 'online-host');
+    reiniciarFondoMenu();
+    irAlMenu();
+  }
+
+  // Unirse a la sala de otro
+  function unirseOnline() {
+    const nombre = nombreOnline();
+    $('on-msg').classList.remove('error');
+    $('on-msg').textContent = 'Conectando…';
+    onlineMod.unirse($('on-codigo').value, nombre, (texto) => {
+      $('on-msg').textContent = texto;
+      $('on-msg').classList.add('error');
+    });
+  }
+
+  function mostrarSalaCliente(codigo) {
+    online = 'cliente';
+    document.body.classList.add('online', 'online-cliente');
+    $('fiesta-titulo').innerHTML = 'SALA ONLINE <small>elige tu equipo y tu personaje</small>';
+    mostrarSalaFiesta();
+    $('fiesta-codigo').textContent = codigo;
+    $('fiesta-estado').textContent = 'Conectado a la sala';
+    $('fiesta-estado').classList.remove('error');
+  }
+
+  // Volver al menú normal (cancha con los bots de siempre)
+  function reiniciarFondoMenu() {
+    combate.espejo = false;
+    if (!combate.entidades.includes(jugador)) combate.meter(jugador);
+    jugador.malla.visible = true;
+    ponerEquipoJugador('azul', 0);
+    aplicarPersonaje(jugador.personaje);
+    bots.preparar(jugador.personaje);
+    poderes.reiniciar();
+    colocarEnInicio();
+    balon.pos.set(0, B.radio, 0);
+    balon.malla.position.copy(balon.pos);
+  }
+
+  function salirOnline(motivo) {
+    const estaba = online === 'cliente';
+    onlineMod.salir();
+    limpiarMunecos();
+    cli.activo = false;
+    online = null;
+    document.body.classList.remove('online', 'online-cliente', 'espectador');
+    estado = 'menu';
+    ui.hud.classList.remove('visible');
+    elTactil.classList.remove('visible');
+    reiniciarFondoMenu();
+    if (motivo && estaba) abrirPantallaOnline('', motivo);
+    else mostrarPantalla('pantalla-titulo');
+  }
+
+  // Elegir equipo, personaje y "listo" en la sala online
+  function elegirEnSala(m) {
+    if (online === 'host') fiesta.elegirLocal(m);
+    else if (online === 'cliente') onlineMod.enviar({ t: 'elegir', ...m });
+    Sonido.sfx.click();
+  }
+  $('yo-azul').addEventListener('click', () => elegirEnSala({ equipo: 'azul' }));
+  $('yo-rojo').addEventListener('click', () => elegirEnSala({ equipo: 'rojo' }));
+  Personajes.lista.forEach((id) => {
+    const inf = Personajes.info[id];
+    const b = document.createElement('button');
+    b.dataset.id = id;
+    b.style.setProperty('--c', inf.color);
+    b.innerHTML = `<span class="ini">${inf.nombre[0]}</span>${inf.nombre}`;
+    b.addEventListener('click', () => elegirEnSala({ personaje: id }));
+    $('yo-pj').appendChild(b);
+  });
+  $('yo-listo').addEventListener('click', () => {
+    Sonido.sfx.click();
+    if (online === 'host') fiesta.listoLocal(!fiesta.local.listo);
+    else if (online === 'cliente') onlineMod.enviar({ t: 'listo', v: !onlineMod.yo.listo });
+  });
+  function ajusteSala(cambio) {
+    if (online === 'cliente') onlineMod.enviar({ t: 'config', ...cambio });
+    else fiesta.cambiarAjuste(cambio);
+  }
+
+  // ---------- El que se unió: dibuja el partido con las fotos ----------
+  const cli = {
+    activo: false, ents: [], fotos: [], hist: [], q: 0, tEnvio: 0,
+    pausado: false, numCuenta: 0, espectador: false, corregir: false
+  };
+
+  function limpiarMunecos() {
+    cli.ents.forEach((e) => { if (e.esMuneco) { combate.quitar(e); scene.remove(e.malla); } });
+    cli.ents = [];
+  }
+
+  // Llega "inicio": se arma la cancha con todos los personajes
+  function clienteIniciar(msg) {
+    combate.espejo = true;
+    limpiarMunecos();
+    bots.preparar({ ocupados: [], rellenar: false });
+    poderes.reiniciar();
+    if (CONFIG.mapas[msg.mapa]) cambiarMapa(msg.mapa);
+    const yoNum = onlineMod.yo.num;
+    cli.espectador = !msg.ents.some((d) => d.num === yoNum);
+    if (cli.espectador) combate.sacar(jugador);
+    else if (!combate.entidades.includes(jugador)) combate.meter(jugador);
+    cli.ents = msg.ents.map((d) => {
+      if (d.num && d.num === yoNum) {
+        ponerEquipoJugador(d.equipo, 0);
+        jugador.aparicion = { x: d.ax, z: d.az };
+        aplicarPersonaje(d.personaje);
+        jugador.nombre = d.nombre;
+        jugador.barra.querySelector('.nombre').textContent = d.nombre;
+        jugador.pos.set(d.ax, 0, d.az);
+        jugador.malla.visible = true;
+        return jugador;
+      }
+      // Los demás son "muñecos": se mueven con las fotos del anfitrión
+      const e = {
+        esMuneco: true, esHumano: d.num > 0, personaje: d.personaje, equipo: d.equipo,
+        malla: Personajes.crearModelo(d.personaje, COL[d.equipo]),
+        pos: new THREE.Vector3(d.ax, 0, d.az), vel: new THREE.Vector3(),
+        dir: new THREE.Vector3(d.equipo === 'azul' ? 1 : -1, 0, 0), animT: 0
+      };
+      e.malla.position.copy(e.pos);
+      e.malla.rotation.y = d.equipo === 'azul' ? Math.PI / 2 : -Math.PI / 2;
+      scene.add(e.malla);
+      combate.registrar(e, { vida: d.vm, radio: 0.55, aparicion: { x: d.ax, z: d.az }, nombre: d.nombre });
+      return e;
+    });
+    partido.marcador.azul = partido.marcador.rojo = 0;
+    partido.prorroga = false;
+    partido.tiempo = CONFIG.partido.duracion;
+    partido.stats = { tiros: 0, canastas: 0, triples: 0, puntos: 0, eliminaciones: 0, poderes: 0, robos: 0, asistencias: 0 };
+    partido.infoInicio = `${mapa.icono} ${mapa.nombre} · Primero a ${CONFIG.partido.puntosParaGanar}`;
+    cli.fotos = []; cli.hist = []; cli.numCuenta = 0; cli.corregir = true; cli.pausado = false;
+    Object.assign(jugador, { impulsoCd: 0, cdRobo: 0, impulsoT: 0, salto: null, alturaExtra: 0, carga: 0, vivo: true });
+    jugador.vel.set(0, 0, 0);
+    balon.portador = null;
+    balon.pos.set(0, 4, 0);
+    estado = 'cuenta';
+    cli.activo = true;
+    document.body.classList.toggle('espectador', cli.espectador);
+    camera.position.set(jugador.pos.x, CONFIG.camara.altura, jugador.pos.z + CONFIG.camara.distancia);
+    camMira.set(jugador.pos.x, 0, jugador.pos.z);
+    mostrarPantalla(null);
+    ui.hud.classList.add('visible');
+    if (!cli.espectador) elTactil.classList.add('visible');
+    mostrarPista(cli.espectador ? 'Estás mirando el partido. Juegas en el próximo.' : partido.infoInicio);
+    actualizarHUD();
+  }
+
+  // Llega una foto del partido (20 por segundo)
+  function clienteFoto(f) {
+    if (!cli.activo) return;
+    f.llegada = performance.now();
+    cli.fotos.push(f);
+    if (cli.fotos.length > 40) cli.fotos.shift();
+
+    // Estado del partido
+    const est = { c: 'cuenta', j: 'jugando', k: 'canasta', p: 'pausa', f: 'fin' }[f.st] || 'jugando';
+    const pausado = est === 'pausa';
+    if (pausado && !cli.pausado) mostrarPista('El anfitrión pausó el partido');
+    cli.pausado = pausado;
+    if (!pausado && estado !== 'fin') {
+      if (est === 'cuenta') {
+        const n = Math.ceil(f.tc);
+        if (n > 0 && n !== cli.numCuenta) { cli.numCuenta = n; mostrarAviso(String(n), partido.infoInicio, jugador.equipo); Sonido.sfx.tic(); }
+      }
+      if (estado === 'cuenta' && est === 'jugando') { mostrarAviso('¡YA!', partido.infoInicio); Sonido.sfx.silbato(); }
+      if (estado === 'canasta' && est === 'jugando') { Sonido.sfx.silbato(); cli.corregir = true; } // todos vuelven a su lugar
+      estado = est;
+    }
+    if (f.pr && !partido.prorroga) { Sonido.sfx.bocina(); mostrarAviso('¡PRÓRROGA!', 'La primera canasta gana'); }
+    partido.tiempo = f.ti;
+    partido.prorroga = !!f.pr;
+    partido.marcador.azul = f.m[0];
+    partido.marcador.rojo = f.m[1];
+    poderes.sincronizar(f.o || []);
+
+    // Cada personaje
+    (f.n || []).forEach((r, i) => {
+      const e = cli.ents[i];
+      if (!e) return;
+      const vivo = !!r[4];
+      const yoMismo = e === jugador;
+      if (e.vivo && vivo) {
+        const d = e.vida - r[3];
+        if (d > 1) {
+          combate.efectoGolpe(e, d, yoMismo ? 'recibido' : 'daño');
+          if (yoMismo) { Sonido.sfx.dañoRecibido(); if (navigator.vibrate) navigator.vibrate(40); }
+        } else if (d < -60) combate.efectoGolpe(e, -d, 'cura');
+      }
+      if (e.vivo && !vivo) {
+        combate.efectoEliminar(e);
+        if (yoMismo) { mostrarAviso('¡ELIMINADO!', '', 'rojo'); jugador.vel.set(0, 0, 0); jugador.impulsoT = 0; }
+      }
+      const revive = !e.vivo && vivo;
+      Object.assign(e, {
+        vida: r[3], vivo, carga: r[5], escudo: r[6], alturaExtra: r[7], tReaparecer: r[8], proteccion: r[9] ? 1 : 0,
+        tPoderTurbo: r[13], tFuego: r[14], tIman: r[15], tTurbo: r[16], tEscudo: r[17]
+      });
+      e.salto = r[7] > 0.01 ? (e.salto || {}) : null;
+      if (yoMismo) {
+        jugador.impulsoCd = r[11];
+        jugador.cdRobo = r[12];
+        corregirPosicion(r, revive);
+      }
+      if (revive) {
+        if (!yoMismo) { e.pos.set(r[0], 0, r[1]); e.malla.position.copy(e.pos); }
+        combate.efectoReaparecer(e);
+      }
+    });
+    balon.portador = f.b[3] >= 0 ? cli.ents[f.b[3]] || null : null;
+    (f.ev || []).forEach(clienteEvento);
+  }
+
+  // Predicción: tu personaje se mueve al instante aquí; si se separa mucho de
+  // donde dice el anfitrión, se va acercando (o salta si está muy lejos)
+  function corregirPosicion(r, revive) {
+    const sx = r[0], sz = r[1];
+    if (revive || cli.corregir || !r[4] || r[7] > 0.01) {
+      jugador.pos.set(sx, 0, sz);
+      cli.hist.length = 0;
+      cli.corregir = false;
+      return;
+    }
+    // Dónde estaba yo cuando mandé la orden que el anfitrión ya usó
+    const q = r[10];
+    const h = cli.hist.find((x) => x.q === q);
+    cli.hist = cli.hist.filter((x) => x.q > q);
+    const bx = h ? h.x : jugador.pos.x, bz = h ? h.z : jugador.pos.z;
+    const ex = sx - bx, ez = sz - bz;
+    const err = Math.hypot(ex, ez);
+    if (err > 3) jugador.pos.set(sx, 0, sz);
+    else if (err > 0.35) {
+      const k = 0.25;
+      jugador.pos.x += ex * k;
+      jugador.pos.z += ez * k;
+      cli.hist.forEach((x) => { x.x += ex * k; x.z += ez * k; });
+    }
+  }
+
+  // Eventos que manda el anfitrión (ataques, súper, canastas…)
+  function clienteEvento(ev) {
+    const e = ev.i !== undefined ? cli.ents[ev.i] : null;
+    switch (ev.e) {
+      case 'atacar':
+        if (!e) return;
+        e.cdAtaque = 0;
+        combate.atacar(e, CONFIG.personajes[e.personaje].ataque, ev.x, ev.z);
+        break;
+      case 'super':
+        if (!e) return;
+        combate.usarSuper(e, ev.x, ev.z, ev.s);
+        if (e === jugador) { desbloquear('super'); mostrarPista(`¡${CONFIG.personajes[e.personaje].super.nombre}!`); }
+        else if (e.equipo !== jugador.equipo) mostrarPista(`¡${e.nombre} usó ${CONFIG.personajes[e.personaje].super.nombre}!`);
+        break;
+      case 'impacto':
+        combate.efectoImpacto(ev.x, ev.z, ev.s);
+        break;
+      case 'tiro':
+        if (!e) return;
+        Personajes.animar(e.malla, 'tiro', e.personaje);
+        Sonido.sfx.tiro();
+        break;
+      case 'pase':
+        if (!e) return;
+        Personajes.animar(e.malla, 'tiro', e.personaje);
+        Sonido.sfx.pase();
+        break;
+      case 'robo': {
+        if (!e) return;
+        const v = cli.ents[ev.v];
+        lanzarParticulas(e.pos.x, 1, e.pos.z, COL.dorado, 12, 4, 6, 0.5);
+        Sonido.sfx.robo();
+        if (v === jugador) mostrarPista(`¡${e.nombre} te robó el balón!`);
+        if (e === jugador) mostrarPista('¡Robo!');
+        break;
+      }
+      case 'canasta': {
+        const aro = aros.find((a) => a.equipo === ev.a);
+        if (aro) {
+          aro.animRed = 1;
+          lanzarParticulas(aro.x, aro.y, aro.z, ev.eq === 'azul' ? COL.azul : COL.rojo, 40, 7);
+          lanzarParticulas(aro.x, aro.y, aro.z, COL.dorado, ev.p === 3 ? 30 : 10, 6);
+          if (ev.f) lanzarParticulas(aro.x, aro.y, aro.z, 0xff7a1a, 40, 8);
+        }
+        Sonido.sfx.canasta(ev.p === 3);
+        mostrarAviso(ev.tx, ev.sb, ev.eq);
+        break;
+      }
+      case 'poder':
+        if (e === jugador) {
+          Sonido.sfx.poder();
+          mostrarPista(`¡${CONFIG.poderes.tipos[ev.k].nombre}!`);
+        }
+        break;
+    }
+  }
+
+  // Cada cuadro del que se unió
+  function clienteCuadro(dt) {
+    const jugando = (estado === 'jugando' || estado === 'canasta') && !cli.pausado;
+    if (!cli.espectador) {
+      actualizarApuntado();
+      if (jugando) moverJugador(dt);
+      else { jugador.entrada.x = jugador.entrada.z = 0; jugador.malla.position.set(jugador.pos.x, jugador.alturaExtra || 0, jugador.pos.z); }
+    }
+    clienteInterpolar(dt);
+    combate.actualizar(dt);
+    poderes.actualizar(dt, false, tiempoTotal);
+    animarAros(dt);
+    if (cli.espectador) camaraFiesta(dt);
+    else actualizarCamara(dt);
+    actualizarAyudasVisuales();
+    actualizarHUD();
+    // Manda los controles al anfitrión (20 veces por segundo)
+    cli.tEnvio -= dt;
+    if (cli.tEnvio <= 0 && !cli.espectador) {
+      cli.tEnvio = CONFIG.red.envioControl / 1000;
+      cli.q++;
+      onlineMod.enviar({
+        t: 'in', q: cli.q,
+        mx: r2(jugador.entrada.x), mz: r2(jugador.entrada.z),
+        dir: { x: r2(jugador.dir.x), z: r2(jugador.dir.z) }
+      });
+      cli.hist.push({ q: cli.q, x: jugador.pos.x, z: jugador.pos.z });
+      if (cli.hist.length > 80) cli.hist.shift();
+    }
+  }
+
+  // Dibuja a los demás un poquito en el pasado (100 ms) para que se vean suaves
+  function clienteInterpolar(dt) {
+    const F = cli.fotos;
+    if (!F.length) return;
+    const t = performance.now() - CONFIG.red.retrasoDibujo;
+    let a = F[F.length - 1], b = a;
+    for (let i = F.length - 1; i > 0; i--) {
+      if (F[i - 1].llegada <= t) { a = F[i - 1]; b = F[i]; break; }
+      a = F[i - 1]; b = F[i - 1];
+    }
+    const span = b.llegada - a.llegada;
+    const k = span > 0 ? Math.max(0, Math.min(1, (t - a.llegada) / span)) : 1;
+    cli.ents.forEach((e, i) => {
+      if (e === jugador) return;
+      const ra = a.n[i], rb = b.n[i];
+      if (!ra || !rb) return;
+      const x = ra[0] + (rb[0] - ra[0]) * k;
+      const z = ra[1] + (rb[1] - ra[1]) * k;
+      const rapidez = dt > 0 ? Math.hypot(x - e.pos.x, z - e.pos.z) / dt : 0;
+      e.pos.set(x, 0, z);
+      e.malla.position.set(x, e.alturaExtra || 0, z);
+      e.malla.rotation.y = mezclarAngulo(ra[2], rb[2], k);
+      e.dir.set(Math.sin(e.malla.rotation.y), 0, Math.cos(e.malla.rotation.y));
+      // Caminar
+      const ud = e.malla.userData;
+      if (ud.animar) ud.animar(tiempoTotal);
+      e.animT += Math.min(rapidez, 12) * dt * 2.2;
+      const paso = rapidez > 0.5 ? Math.sin(e.animT) : 0;
+      if (ud.pierna1) { ud.pierna1.position.z = paso * 0.15; ud.pierna2.position.z = -paso * 0.15; }
+      if (ud.cuerpo && !ud.flota) ud.cuerpo.position.y = Math.abs(paso) * 0.06;
+    });
+    // Balón: si lo llevas tú, rebota a tu lado (sin esperar al anfitrión)
+    if (balon.portador === jugador) {
+      const ladoX = -jugador.dir.z, ladoZ = jugador.dir.x;
+      balon.pos.set(
+        jugador.pos.x + jugador.dir.x * 0.6 + ladoX * 0.55,
+        B.radio + Math.abs(Math.sin(tiempoTotal * 7)) * 0.75,
+        jugador.pos.z + jugador.dir.z * 0.6 + ladoZ * 0.55
+      );
+    } else {
+      const ba = a.b, bb = b.b;
+      const salto = Math.hypot(bb[0] - ba[0], bb[2] - ba[2]) > 6; // canasta o reinicio: sin mezclar
+      const kb = salto ? 1 : k;
+      balon.pos.set(ba[0] + (bb[0] - ba[0]) * kb, ba[1] + (bb[1] - ba[1]) * kb, ba[2] + (bb[2] - ba[2]) * kb);
+    }
+    const anterior = balon.malla.position.clone();
+    balon.malla.position.copy(balon.pos);
+    balon.malla.rotation.x += (balon.pos.z - anterior.z) * 3;
+    balon.malla.rotation.z -= (balon.pos.x - anterior.x) * 3;
+    sombraBalon.position.x = balon.pos.x;
+    sombraBalon.position.z = balon.pos.z;
+    const alt = Math.max(0, balon.pos.y - B.radio);
+    sombraBalon.material.opacity = Math.max(0.1, 0.45 - alt * 0.06);
+    sombraBalon.scale.setScalar(1 + alt * 0.12);
+    marcaBalon.visible = !balon.portador;
+    marcaBalon.position.x = balon.pos.x;
+    marcaBalon.position.z = balon.pos.z;
+    marcaBalon.scale.setScalar(1 + Math.sin(tiempoTotal * 6) * 0.15);
+    if (b.b[4]) lanzarParticulas(balon.pos.x, balon.pos.y + 0.2, balon.pos.z, Math.random() < 0.5 ? 0xff7a1a : 0xffd23f, 1, 1.5, -3, 0.35);
+  }
+
+  function mezclarAngulo(a, b, k) {
+    let d = b - a;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return a + d * k;
+  }
+
+  // Fin del partido (lo manda el anfitrión)
+  function clienteFin(m) {
+    if (!cli.activo) return;
+    estado = 'fin';
+    Sonido.sfx.bocina();
+    const gano = m.ganador === jugador.equipo;
+    if (gano && !cli.espectador) desbloquear('victoria');
+    $('fin-titulo').textContent = m.ganador ? (cli.espectador ? `¡GANA EL EQUIPO ${m.ganador.toUpperCase()}!` : gano ? '¡GANÓ TU EQUIPO!' : 'Ganó el otro equipo') : '¡EMPATE!';
+    $('fin-titulo').className = m.ganador || '';
+    $('fin-marcador').innerHTML = `<span class="azul">${m.az}</span> - <span class="rojo">${m.ro}</span>`;
+    $('fin-info').textContent = `${mapa.icono} ${mapa.nombre} · Online`;
+    const mejor = m.tabla[0] && m.tabla[0].puntos > 0 ? m.tabla[0].num : 0;
+    $('fin-stats').innerHTML = (m.tabla || []).map((f) => `
+      <li class="fila-fiesta ${f.equipo}${f.num === onlineMod.yo.num ? ' yo' : ''}"><span>P${f.num} ${escaparHTML(f.nombre)} · ${Personajes.info[f.personaje].nombre}${f.num === mejor ? ' ⭐' : ''}</span>
+      <b>${f.puntos} pts · ${f.elims} elim.</b></li>`).join('');
+    $('fin-volver').textContent = 'Volviendo a la sala en unos segundos…';
+    setTimeout(() => {
+      ui.hud.classList.remove('visible');
+      elTactil.classList.remove('visible');
+      if (estado === 'fin' && online === 'cliente') mostrarPantalla('pantalla-fin');
+    }, 1200);
+  }
+
+  // El anfitrión volvió a la sala
+  function clienteVolverSala() {
+    cli.activo = false;
+    limpiarMunecos();
+    combate.espejo = false;
+    if (!combate.entidades.includes(jugador)) combate.meter(jugador);
+    document.body.classList.remove('espectador');
+    elTactil.classList.remove('visible');
+    mostrarSalaFiesta();
+  }
+
+  // Si entras con un enlace "…#sala=ABCD" se abre directo la pantalla para unirse
+  const salaEnEnlace = /^#sala=([A-Za-z]{4})$/.exec(location.hash);
+  if (salaEnEnlace) setTimeout(() => abrirPantallaOnline(salaEnEnlace[1].toUpperCase()), 0);
 
   // ==========================================================
   // 14. BUCLE PRINCIPAL
@@ -2248,7 +2803,9 @@
       document.body.classList.toggle('en-partido', enPartido); // oculta el botón de la esquina al jugar
     }
 
-    if (enPartido && !vertical) {
+    if (online === 'cliente' && cli.activo) {
+      if (!vertical) clienteCuadro(dt);
+    } else if (enPartido && !vertical) {
       if (estado === 'cuenta') {
         // 3, 2, 1, ¡YA!
         partido.tCuenta -= dt;
@@ -2300,7 +2857,9 @@
     }
 
     // Modo Fiesta: personas, sala y envío de datos a los celulares
-    if (modoFiesta) fiesta.actualizar(dt, (estado === 'jugando' || estado === 'canasta') && !vertical);
+    if (modoFiesta || online === 'host') fiesta.actualizar(dt, (estado === 'jugando' || estado === 'canasta') && !vertical);
+    // Online: el anfitrión manda la foto del partido
+    if (online === 'host') onlineMod.actualizarHost(dt); // también en pausa (los demás ven "pausa")
 
     // Vista previa 3D en la pantalla de elegir personaje
     if (vistaPrevia && $('pantalla-personajes').classList.contains('activa')) vistaPrevia.dibujar(tiempoTotal);
@@ -2341,7 +2900,8 @@
   // Para pruebas automáticas (no afecta el juego)
   window.__juego = {
     get estado() { return estado; }, get mapa() { return mapa; }, get modoFiesta() { return modoFiesta; },
-    partido, balon, jugador, combate, bots, poderes, aros
+    partido, balon, jugador, combate, bots, poderes, aros,
+    get online() { return online; }, cli
   };
 
   bucle();

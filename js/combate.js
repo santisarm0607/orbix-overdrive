@@ -8,6 +8,17 @@
 // Se crea desde game.js pasándole lo que necesita del juego.
 function crearCombate(ctx) {
   const { scene, camera, lanzarParticulas, resolverColisiones, alEliminar, alReaparecer, sacudir, alUsarSuper } = ctx;
+  // MODO ESPEJO (online, en el equipo del que se unió): el combate solo dibuja efectos.
+  // La vida, las eliminaciones y la súper las manda el anfitrión.
+  let espejo = false;
+  // Avisa al online de cada ataque, súper o impacto (el anfitrión se los manda a los demás)
+  const avisarAccion = (...datos) => { if (ctx.alAccion && !espejo) ctx.alAccion(...datos); };
+  // Números al azar con semilla: así la lluvia de meteoritos cae igual en todas las pantallas
+  function aleatorio(semilla) {
+    if (!semilla) return Math.random;
+    let a = semilla >>> 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
   const SP = CONFIG.super;
   const CB = CONFIG.combate;
   const COL = CONFIG.colores;
@@ -115,7 +126,7 @@ function crearCombate(ctx) {
   // ==========================================================
   // Carga la súper de "ent" (no se carga con el daño de otra súper)
   function cargarSuper(ent, fraccion) {
-    if (!ent || !ent.vivo) return;
+    if (espejo || !ent || !ent.vivo) return;
     const antes = ent.carga;
     ent.carga = Math.min(1, ent.carga + fraccion);
     if (antes < 1 && ent.carga >= 1) {
@@ -125,7 +136,7 @@ function crearCombate(ctx) {
   }
 
   function hacerDaño(objetivo, cantidad, atacante, esSuper = false) {
-    if (!objetivo.vivo || objetivo.proteccion > 0) return;
+    if (espejo || !objetivo.vivo || objetivo.proteccion > 0) return;
     if (atacante && !esSuper) cargarSuper(atacante, cantidad / SP.dañoParaCargar);
     // El escudo absorbe primero
     if (objetivo.escudo > 0) {
@@ -154,7 +165,7 @@ function crearCombate(ctx) {
   }
 
   function curar(objetivo, cantidad, curador, esSuper = false) {
-    if (!objetivo.vivo || objetivo.vida >= objetivo.vidaMax) return;
+    if (espejo || !objetivo.vivo || objetivo.vida >= objetivo.vidaMax) return;
     const real = Math.min(cantidad, objetivo.vidaMax - objetivo.vida);
     objetivo.vida += real;
     if (curador && !esSuper) cargarSuper(curador, real / SP.curaParaCargar);
@@ -177,6 +188,25 @@ function crearCombate(ctx) {
     Sonido.sfx.eliminado();
     if (atacante) atacante.eliminaciones++;
     alEliminar(ent, atacante, esSuper);
+  }
+
+  // ---- Efectos para el modo espejo (los llama el online cuando llega el estado del anfitrión) ----
+  function efectoGolpe(ent, cantidad, tipo) {
+    ent.tFlash = 0.12;
+    if (tipo) numero(ent, cantidad, tipo);
+    if (tipo !== 'cura') lanzarParticulas(ent.pos.x, 1, ent.pos.z, 0xffffff, 6, 4, 9, 0.4);
+  }
+  function efectoEliminar(ent) {
+    ent.malla.visible = false;
+    const color = ent.equipo === 'azul' ? COL.azul : COL.rojo;
+    lanzarParticulas(ent.pos.x, 1, ent.pos.z, color, 30, 7, 9, 1);
+    lanzarParticulas(ent.pos.x, 1, ent.pos.z, 0xffffff, 12, 5, 9, 0.8);
+    Sonido.sfx.eliminado();
+  }
+  function efectoReaparecer(ent) {
+    ent.malla.visible = true;
+    lanzarParticulas(ent.pos.x, 0.5, ent.pos.z, 0x9ff4ff, 20, 4, 2, 0.8);
+    alReaparecer(ent);
   }
 
   function reaparecer(ent) {
@@ -402,6 +432,7 @@ function crearCombate(ctx) {
     const turbo = ent.tTurbo > 0 ? CONFIG.personajes.zip.super.ataqueMasRapido : 1;
     ent.cdAtaque = a.enfriamiento * turbo;
     ent.tSinCombate = 0;
+    avisarAccion('atacar', ent, objetivoX, objetivoZ);
     ent.proteccion = 0; // atacar quita la protección de reaparición
     Personajes.animar(ent.malla, 'ataque', ent.personaje);
     const color = colorDe(ent);
@@ -497,8 +528,11 @@ function crearCombate(ctx) {
   let tAvisoMeteoro = 0;
 
   // Usa la súper hacia el punto (tx, tz). Devuelve true si se usó.
-  function usarSuper(ent, tx, tz) {
-    if (!ent.vivo || ent.carga < 1 || ent.salto) return false;
+  function usarSuper(ent, tx, tz, semilla) {
+    if (!ent.vivo || (!espejo && ent.carga < 1) || ent.salto) return false;
+    if (!semilla) semilla = 1 + Math.floor(Math.random() * 1e9);
+    const rnd = aleatorio(semilla);
+    avisarAccion('super', ent, tx, tz, semilla);
     const su = CONFIG.personajes[ent.personaje].super;
     const mult = ent.multDaño || 1;
     ent.carga = 0;
@@ -529,7 +563,8 @@ function crearCombate(ctx) {
       Sonido.sfx.superNova();
     } else if (su.tipo === 'salto') {
       // Kraag: salta y cae con fuerza
-      ent.salto = { t: 0, dur: su.duracion, x0: ent.pos.x, z0: ent.pos.z, x1: destX, z1: destZ, daño: su.daño * mult, radio: su.radio, empuje: su.empuje };
+      // En el espejo el salto lo mueve el anfitrión (llega con la posición y la altura)
+      if (!espejo) ent.salto = { t: 0, dur: su.duracion, x0: ent.pos.x, z0: ent.pos.z, x1: destX, z1: destZ, daño: su.daño * mult, radio: su.radio, empuje: su.empuje };
       Sonido.sfx.salto();
     } else if (su.tipo === 'turbo') {
       // Zip: corre y ataca más rápido
@@ -555,8 +590,8 @@ function crearCombate(ctx) {
     } else if (su.tipo === 'lluvia') {
       // Meteor: varios meteoritos caen en la zona (se anuncian con un círculo)
       for (let i = 0; i < su.cantidad; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = Math.sqrt(Math.random()) * su.radio * 0.85;
+        const a = rnd() * Math.PI * 2;
+        const r = Math.sqrt(rnd()) * su.radio * 0.85;
         meteoros.push({
           x: destX + Math.cos(a) * r, z: destZ + Math.sin(a) * r,
           t: 0.35 + (su.duracion * i) / su.cantidad, // cuándo cae
@@ -654,11 +689,9 @@ function crearCombate(ctx) {
 
   // Kraag cae: daña y empuja a los rivales cercanos
   function impacto(e, sa) {
-    onda(e.pos.x, e.pos.z, sa.radio, 0xb49cff);
-    lanzarParticulas(e.pos.x, 0.3, e.pos.z, 0xb49cff, 40, 9, 9, 0.8);
-    Sonido.sfx.golpe();
-    Sonido.sfx.explosion();
-    sacudir(0.6);
+    avisarAccion('impacto', e, e.pos.x, e.pos.z, sa.radio);
+    efectoImpacto(e.pos.x, e.pos.z, sa.radio);
+    if (espejo) return;
     for (const o of entidades) {
       if (!o.vivo || o.equipo === e.equipo) continue;
       const dx = o.pos.x - e.pos.x, dz = o.pos.z - e.pos.z;
@@ -668,6 +701,14 @@ function crearCombate(ctx) {
       const k = sa.empuje / (d || 1);
       o.empuje.set(dx * k || sa.empuje, 0, dz * k);
     }
+  }
+  // Lo que se ve cuando Kraag cae (también lo usa el espejo)
+  function efectoImpacto(x, z, radio) {
+    onda(x, z, radio, 0xb49cff);
+    lanzarParticulas(x, 0.3, z, 0xb49cff, 40, 9, 9, 0.8);
+    Sonido.sfx.golpe();
+    Sonido.sfx.explosion();
+    sacudir(0.6);
   }
 
   // ==========================================================
@@ -681,12 +722,14 @@ function crearCombate(ctx) {
       if (e.burbuja) e.burbuja.visible = e.vivo && e.proteccion > 0;
 
       if (!e.vivo) {
+        if (espejo) continue; // en el espejo lo revive el anfitrión
         e.tReaparecer -= dt;
         if (e.tReaparecer <= 0) reaparecer(e);
         continue;
       }
       // Regeneración tras unos segundos sin pelear
       e.tSinCombate += dt;
+      if (espejo) e.tSinCombate = 0;
       if (e.tSinCombate > CB.esperaRegeneracion && e.vida < e.vidaMax) {
         e.vida = Math.min(e.vidaMax, e.vida + e.vidaMax * CB.regeneracion * dt);
       }
@@ -759,6 +802,8 @@ function crearCombate(ctx) {
   }
 
   return {
+    get espejo() { return espejo; }, set espejo(v) { espejo = !!v; },
+    efectoGolpe, efectoEliminar, efectoReaparecer, efectoImpacto,
     entidades, registrar, quitar, sacar, meter, cambiarMalla, atacar, actualizar, usarSuper, cargarSuper, restaurarTodos,
     actualizarBarras, reiniciarTodos, hacerDaño, curar, proyectiles
   };

@@ -152,5 +152,21 @@ function crearPoderes(ctx) {
   // Distancia para recoger el balón (más grande con Imán)
   const radioBalon = (ent, base) => (ent.tIman > 0 ? P.tipos.iman.radioRecogida : base);
 
-  return { actualizar, reiniciar, quitarA, multVelocidad, radioBalon, orbes };
+  // Online (el que se unió): deja en la cancha exactamente los orbes que manda el anfitrión
+  // lista = [[tipo, x, z], ...]
+  function sincronizar(lista) {
+    const igual = (o, l) => o.tipo === l[0] && Math.abs(o.x - l[1]) < 0.01 && Math.abs(o.z - l[2]) < 0.01;
+    for (let i = orbes.length - 1; i >= 0; i--) {
+      if (!lista.some((l) => igual(orbes[i], l))) { scene.remove(orbes[i].malla); orbes.splice(i, 1); }
+    }
+    for (const l of lista) {
+      if (orbes.some((o) => igual(o, l)) || !P.tipos[l[0]]) continue;
+      const malla = crearMalla(l[0]);
+      malla.position.set(l[1], 0, l[2]);
+      scene.add(malla);
+      orbes.push({ tipo: l[0], x: l[1], z: l[2], malla, t: Math.random() * 6, nacer: 0 });
+    }
+  }
+
+  return { actualizar, reiniciar, quitarA, multVelocidad, radioBalon, orbes, sincronizar };
 }

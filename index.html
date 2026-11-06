@@ -95,6 +95,7 @@
       <p class="lema">Baloncesto galáctico 3 vs 3</p>
       <div class="botones">
         <button data-accion="jugar" class="principal">JUGAR</button>
+        <button data-accion="online" class="online-btn">🌐 ONLINE</button>
         <button data-accion="fiesta" class="fiesta-btn">📱 MODO FIESTA</button>
         <button data-accion="controles">CONTROLES</button>
         <button data-accion="logros">LOGROS</button>
@@ -105,10 +106,34 @@
     </div>
   </div>
 
+  <!-- ===================== ONLINE: CREAR O UNIRSE ===================== -->
+  <div id="pantalla-online" class="pantalla">
+    <div class="panel panel-online">
+      <h2>ONLINE <small>cada uno en su pantalla, desde donde esté</small></h2>
+      <label class="campo-online">Tu nombre <input id="on-nombre" maxlength="10" autocomplete="off" placeholder="Ej: Santi"></label>
+      <div class="online-opciones">
+        <div class="online-caja">
+          <h3>Crear sala</h3>
+          <p>Tú eres el anfitrión: tu equipo hace de servidor y tú también juegas. Les pasas el código a tus amigos.</p>
+          <button data-accion="online-crear" class="principal">CREAR SALA</button>
+        </div>
+        <div class="online-caja">
+          <h3>Unirse</h3>
+          <p>Escribe el código de 4 letras que te pasaron.</p>
+          <input id="on-codigo" maxlength="4" autocomplete="off" placeholder="ABCD" class="codigo-online">
+          <button data-accion="online-unirse" class="principal">UNIRSE</button>
+        </div>
+      </div>
+      <p id="on-msg" class="fiesta-msg"></p>
+      <p class="online-nota">Necesitan internet. Funciona desde la página publicada (GitHub Pages), no dentro del artefacto.</p>
+      <div class="botones fila"><button data-accion="volver">VOLVER</button></div>
+    </div>
+  </div>
+
   <!-- ===================== MODO FIESTA: SALA ===================== -->
   <div id="pantalla-fiesta" class="pantalla">
     <div class="panel panel-fiesta">
-      <h2>MODO FIESTA <small>una pantalla · los celulares son el control</small></h2>
+      <h2 id="fiesta-titulo">MODO FIESTA <small>una pantalla · los celulares son el control</small></h2>
       <div class="fiesta-cuerpo">
         <div class="fiesta-qr-caja">
           <div id="fiesta-qr" class="fiesta-qr"></div>
@@ -126,6 +151,16 @@
               <button id="fiesta-bots-si" class="opcion">SÍ</button>
               <button id="fiesta-bots-no" class="opcion">NO</button>
             </span>
+          </div>
+          <!-- Online: lo que tú eliges (tú también juegas) -->
+          <div id="sala-yo" class="sala-yo" hidden>
+            <div class="yo-fila">
+              <span>Tu equipo</span>
+              <button id="yo-azul" class="opcion yo-eq azul">AZUL <small></small></button>
+              <button id="yo-rojo" class="opcion yo-eq rojo">ROJO <small></small></button>
+            </div>
+            <div id="yo-pj" class="yo-pj"></div>
+            <button id="yo-listo" class="principal">¡LISTO!</button>
           </div>
         </div>
       </div>
@@ -321,6 +356,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/red.js"></script>
   <script src="js/fiesta.js"></script>
+  <script src="js/online.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

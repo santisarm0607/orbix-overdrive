@@ -10,6 +10,72 @@
      mueve al personaje y le devuelve su vida y su súper.
    ========================================================== */
 
+// ==========================================================
+// Dibuja la sala en la pantalla a partir de los datos de la sala
+// (los mismos que se mandan a los celulares). La usan el Modo Fiesta,
+// el anfitrión online y los que se unen online.
+//   datos = { jugadores: [{ num, nombre, equipo, personaje, listo, lider }], mapa, bots, cuenta, motivo }
+//   op = { yoNum, puedeEmpezar, soyAnfitrion }
+// ==========================================================
+function pintarSala(datos, op = {}) {
+  const $ = (id) => document.getElementById(id);
+  const escapar = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const js = datos.jugadores || [];
+  ['azul', 'rojo'].forEach((eq) => {
+    const del = js.filter((j) => j.equipo === eq);
+    let html = '';
+    for (let i = 0; i < 3; i++) {
+      const j = del[i];
+      if (j) {
+        const inf = j.personaje ? Personajes.info[j.personaje] : null;
+        html += `<li class="ocupado${j.listo ? ' listo' : ''}${j.num === op.yoNum ? ' yo' : ''}" style="--c:${inf ? inf.color : '#888'}">
+          <span class="num">P${j.num}</span>
+          <span class="quien"><b>${escapar(j.nombre)}${j.lider ? ' 👑' : ''}${j.num === op.yoNum ? ' (tú)' : ''}</b><small>${inf ? inf.nombre : 'eligiendo…'}</small></span>
+          <span class="marca">${j.listo ? '✔' : '…'}</span></li>`;
+      } else {
+        html += `<li class="vacio">${datos.bots ? '🤖 Bot' : 'Libre'}</li>`;
+      }
+    }
+    $(`fiesta-${eq}`).innerHTML = html;
+  });
+  const sinEquipo = js.filter((j) => !j.equipo);
+  $('fiesta-sin-equipo').textContent = sinEquipo.length ? `Eligiendo equipo: ${sinEquipo.map((j) => j.nombre).join(', ')}` : '';
+  $('fiesta-mapa').value = datos.mapa;
+  $('fiesta-bots-si').classList.toggle('activa', !!datos.bots);
+  $('fiesta-bots-no').classList.toggle('activa', !datos.bots);
+  // Solo el líder (o la pantalla del Modo Fiesta) cambia el mapa y los bots
+  const yo = js.find((j) => j.num === op.yoNum);
+  const mandaAjustes = !op.yoNum || (yo && yo.lider);
+  $('fiesta-mapa').disabled = !mandaAjustes;
+  $('fiesta-bots-si').disabled = $('fiesta-bots-no').disabled = !mandaAjustes;
+  const msg = datos.cuenta != null ? `¡Empieza en ${datos.cuenta}!` : datos.motivo || '';
+  $('fiesta-msg').textContent = msg;
+  $('fiesta-msg').classList.toggle('cuenta', datos.cuenta != null);
+  $('fiesta-empezar').disabled = !op.puedeEmpezar;
+  // Panel "tu elección" (solo online: tú también juegas)
+  const panel = $('sala-yo');
+  panel.hidden = !op.yoNum;
+  if (!op.yoNum || !yo) return;
+  ['azul', 'rojo'].forEach((eq) => {
+    const b = $(`yo-${eq}`);
+    const n = js.filter((j) => j.equipo === eq && j.num !== yo.num).length;
+    b.classList.toggle('activa', yo.equipo === eq);
+    b.disabled = n >= 3 && yo.equipo !== eq;
+    b.querySelector('small').textContent = `${n + (yo.equipo === eq ? 1 : 0)}/3`;
+  });
+  document.querySelectorAll('#yo-pj button').forEach((b) => {
+    const otro = js.find((j) => j.personaje === b.dataset.id && j.num !== yo.num);
+    b.classList.toggle('ocupado', !!otro);
+    b.classList.toggle('activa', yo.personaje === b.dataset.id);
+    b.disabled = !!otro;
+    b.title = otro ? `Lo tiene ${otro.nombre}` : Personajes.info[b.dataset.id].rol;
+  });
+  const listo = $('yo-listo');
+  listo.textContent = yo.listo ? '✔ LISTO' : '¡LISTO!';
+  listo.classList.toggle('esta-listo', !!yo.listo);
+  listo.disabled = !yo.equipo || !yo.personaje;
+}
+
 function crearFiesta(ctx) {
   const { scene, combate, balon, aros, poderes } = ctx;
   const R = CONFIG.red;
@@ -34,7 +100,10 @@ function crearFiesta(ctx) {
   let finVolver = 0;           // momento de volver a la sala tras el partido
   const ahora = () => performance.now() / 1000;
   let tEnvio = 0;
-  let humanos = [];            // personajes de las personas durante el partido
+  let humanos = [];            // personajes de las personas durante el partido (sin el anfitrión)
+  // 'fiesta' = la pantalla solo muestra; 'online' = el anfitrión también juega (con el personaje "jugador")
+  let modo = 'fiesta';
+  let local = null;            // el anfitrión como jugador (solo online)
 
   const lista = () => [...jugadores.values()].sort((a, b) => a.num - b.num);
   const conectados = () => lista().filter((j) => j.conectado);
@@ -56,9 +125,19 @@ function crearFiesta(ctx) {
   // ==========================================================
   // 2. ABRIR Y CERRAR LA SALA
   // ==========================================================
-  function abrir() {
+  // nombreLocal: si viene, es una sala ONLINE y el anfitrión también juega
+  function abrir(nombreLocal) {
+    modo = nombreLocal ? 'online' : 'fiesta';
     fase = 'sala';
     sala.cuenta = null;
+    if (modo === 'online' && !local) {
+      local = {
+        id: 'local', num: 1, nombre: String(nombreLocal).slice(0, 10), dispositivo: 'local', orden: -1, esLocal: true,
+        equipo: 'azul', personaje: ctx.jugadorLocal.personaje, listo: false, conectado: true, visto: Infinity,
+        ent: null, input: { mx: 0, mz: 0, ap: null, sp: null, t: 0 }
+      };
+      jugadores.set('local', local);
+    }
     $('fiesta-codigo').textContent = '····';
     $('fiesta-qr').innerHTML = '';
     $('fiesta-url').textContent = '';
@@ -67,7 +146,7 @@ function crearFiesta(ctx) {
     // En la versión de una sola página (artefacto) no se permiten conexiones
     if (CONFIG.red.enlaceFiesta) {
       $('fiesta-qr').textContent = '📱';
-      estadoRed(`Aquí no se puede conectar. Abre el juego en ${CONFIG.red.enlaceFiesta} para jugar el Modo Fiesta.`, true);
+      estadoRed(`Aquí no se puede conectar. Abre el juego en ${CONFIG.red.enlaceFiesta} para jugar ${modo === 'online' ? 'online' : 'el Modo Fiesta'}.`, true);
       return;
     }
     if (typeof Peer === 'undefined') {
@@ -79,8 +158,9 @@ function crearFiesta(ctx) {
   }
 
   function mostrarCodigo(codigo) {
-    const url = new URL('control.html', location.href);
-    url.hash = codigo;
+    // Fiesta: el QR abre el control. Online: abre el juego y entra solo a la sala.
+    const url = new URL(modo === 'online' ? 'index.html' : 'control.html', location.href);
+    url.hash = modo === 'online' ? 'sala=' + codigo : codigo;
     $('fiesta-codigo').textContent = codigo;
     $('fiesta-url').textContent = url.href.replace(/^https?:\/\//, '');
     $('fiesta-qr').innerHTML = '';
@@ -92,7 +172,7 @@ function crearFiesta(ctx) {
     // En una página sin dirección pública (archivo local) los celulares no pueden entrar
     if (location.protocol === 'file:') estadoRed('Abre el juego con Live Server o desde GitHub Pages para que los celulares puedan entrar.', true);
     else if (/^(localhost|127\.)/.test(location.hostname)) estadoRed('Ojo: en el celular cambia "localhost" por la IP de este computador.', true);
-    else estadoRed('Escanea el código con la cámara del celular');
+    else estadoRed(modo === 'online' ? 'Pásales el código: entran con ONLINE → Unirse (o escaneando el QR)' : 'Escanea el código con la cámara del celular');
   }
 
   function estadoRed(texto, error = false) {
@@ -103,8 +183,10 @@ function crearFiesta(ctx) {
 
   // Salir del Modo Fiesta (vuelve al menú normal)
   function cerrar() {
+    Red.enviarATodos({ t: 'cerrada' }); // avisa a todos que la sala se cerró
     quitarHumanos();
     jugadores.clear();
+    local = null;
     Red.cerrar();
     fase = 'cerrada';
   }
@@ -137,6 +219,9 @@ function crearFiesta(ctx) {
         j.input.mz = clamp(+m.mz || 0);
         j.input.ap = m.ap || null;
         j.input.sp = m.sp || null;
+        // Online desde computador: hacia dónde mira (el mouse)
+        j.input.dir = m.dir && Number.isFinite(+m.dir.x) && Number.isFinite(+m.dir.z) ? { x: +m.dir.x, z: +m.dir.z } : null;
+        j.input.q = +m.q || 0; // número de la orden (online: el que se unió corrige su posición con esto)
         j.input.t = performance.now();
         break;
       case 'accion':
@@ -185,13 +270,22 @@ function crearFiesta(ctx) {
     }
     j.visto = ahora();
     jugadores.set(id, j);
-    Red.enviar(id, { t: 'bienvenido', num: j.num, lider: lider() === j, equipo: j.equipo, personaje: j.personaje, listo: j.listo });
+    Red.enviar(id, { t: 'bienvenido', modo, num: j.num, lider: lider() === j, equipo: j.equipo, personaje: j.personaje, listo: j.listo });
     if (fase === 'juego' && j.ent) {
       Red.enviar(id, { t: 'fase', f: 'juego' });
+      if (ctx.alReconectar) ctx.alReconectar(id); // online: le manda el partido en curso
     } else if (fase === 'juego' || fase === 'fin') {
       j.listo = false;
     }
     Sonido.sfx.recoger();
+    cambioSala();
+  }
+
+  // El anfitrión online elige desde su pantalla
+  function elegirLocal(m) { if (local) elegir(local, m); }
+  function listoLocal(v) {
+    if (!local || fase !== 'sala') return;
+    local.listo = !!v && !!local.equipo && !!local.personaje;
     cambioSala();
   }
 
@@ -249,49 +343,24 @@ function crearFiesta(ctx) {
   }
 
   function enviarSala() {
+    Red.enviarATodos({ t: 'sala', ...datosSala() });
+  }
+
+  // Los datos de la sala (los mismos que reciben los celulares)
+  function datosSala() {
     const l = lider();
-    Red.enviarATodos({
-      t: 'sala',
+    return {
       jugadores: lista().filter((j) => j.conectado).map((j) => ({
         num: j.num, nombre: j.nombre, equipo: j.equipo, personaje: j.personaje, listo: j.listo, lider: j === l
       })),
-      mapa: sala.mapa,
-      bots: sala.bots,
-      cuenta: sala.cuenta,
+      mapa: sala.mapa, bots: sala.bots, cuenta: sala.cuenta,
       motivo: fase === 'juego' ? 'Hay un partido en curso. Entras en el próximo.' : sala.motivo
-    });
+    };
   }
 
-  // Dibuja la sala en la pantalla grande
+  // Dibuja la sala en la pantalla (la de la TV o la del anfitrión online)
   function dibujarSala() {
-    const l = lider();
-    ['azul', 'rojo'].forEach((eq) => {
-      const cont = $(`fiesta-${eq}`);
-      const js = conectados().filter((j) => j.equipo === eq);
-      let html = '';
-      for (let i = 0; i < 3; i++) {
-        const j = js[i];
-        if (j) {
-          const inf = j.personaje ? Personajes.info[j.personaje] : null;
-          html += `<li class="ocupado${j.listo ? ' listo' : ''}" style="--c:${inf ? inf.color : '#888'}">
-            <span class="num">P${j.num}</span>
-            <span class="quien"><b>${escapar(j.nombre)}${j === l ? ' 👑' : ''}</b><small>${inf ? inf.nombre : 'eligiendo…'}</small></span>
-            <span class="marca">${j.listo ? '✔' : '…'}</span></li>`;
-        } else {
-          html += `<li class="vacio">${sala.bots ? '🤖 Bot' : 'Libre'}</li>`;
-        }
-      }
-      cont.innerHTML = html;
-    });
-    const sinEquipo = conectados().filter((j) => !j.equipo);
-    $('fiesta-sin-equipo').textContent = sinEquipo.length ? `Eligiendo equipo: ${sinEquipo.map((j) => j.nombre).join(', ')}` : '';
-    $('fiesta-mapa').value = sala.mapa;
-    $('fiesta-bots-si').classList.toggle('activa', sala.bots);
-    $('fiesta-bots-no').classList.toggle('activa', !sala.bots);
-    const msg = sala.cuenta != null ? `¡Empieza en ${sala.cuenta}!` : sala.motivo || '';
-    $('fiesta-msg').textContent = msg;
-    $('fiesta-msg').classList.toggle('cuenta', sala.cuenta != null);
-    $('fiesta-empezar').disabled = !!revisar(false);
+    pintarSala(datosSala(), { yoNum: local ? local.num : 0, puedeEmpezar: !revisar(false) });
   }
 
   const escapar = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -315,7 +384,12 @@ function crearFiesta(ctx) {
     quitarHumanos();
     // Cada persona en un lugar de su equipo
     const usados = { azul: 0, rojo: 0 };
-    humanos = js.map((j) => crearHumano(j, usados[j.equipo]++));
+    humanos = [];
+    js.forEach((j) => {
+      const lugar = usados[j.equipo]++;
+      if (j.esLocal) j.ent = ctx.prepararLocal(j, lugar); // el anfitrión juega con su personaje de siempre
+      else humanos.push(crearHumano(j, lugar));
+    });
     const orden = CONFIG.mapas.orden;
     const mapaId = sala.mapa === 'azar' ? orden[Math.floor(Math.random() * orden.length)] : sala.mapa;
     ctx.iniciar({
@@ -325,6 +399,7 @@ function crearFiesta(ctx) {
       personas: js.length
     });
     Red.enviarATodos({ t: 'fase', f: 'juego' });
+    if (ctx.alEmpezar) ctx.alEmpezar(); // online: manda a todos cómo empieza el partido
     enviarSala(); // los que no juegan ven "partido en curso"
   }
 
@@ -334,7 +409,7 @@ function crearFiesta(ctx) {
     finVolver = ahora() + F.volverSala;
     const p = ctx.partido;
     const tabla = combate.entidades
-      .filter((e) => e.esRemoto)
+      .filter((e) => e.jugadorFiesta)
       .map((e) => ({ num: e.jugadorFiesta.num, nombre: e.jugadorFiesta.nombre, equipo: e.equipo, personaje: e.personaje, puntos: e.puntos || 0, elims: e.eliminaciones || 0 }))
       .sort((a, b) => b.puntos - a.puntos || b.elims - a.elims);
     Red.enviarATodos({ t: 'fin', ganador, az: p.marcador.azul, ro: p.marcador.rojo, tabla });
@@ -457,6 +532,7 @@ function crearFiesta(ctx) {
       if (h.jugadorFiesta) h.jugadorFiesta.ent = null;
     });
     humanos = [];
+    if (local) { local.ent = null; if (ctx.soltarLocal) ctx.soltarLocal(); }
   }
 
   // Las personas a su lugar (inicio y tras cada canasta)
@@ -471,8 +547,14 @@ function crearFiesta(ctx) {
     });
   }
 
-  const vibrar = (j, ms) => { if (j.conectado) Red.enviar(j.id, { t: 'vibrar', ms: Math.round(ms) }); };
-  const avisar = (j, txt) => { if (j.conectado) Red.enviar(j.id, { t: 'aviso', txt }); };
+  const vibrar = (j, ms) => {
+    if (j.esLocal) { if (navigator.vibrate) navigator.vibrate(Math.round(ms)); return; }
+    if (j.conectado) Red.enviar(j.id, { t: 'vibrar', ms: Math.round(ms) });
+  };
+  const avisar = (j, txt) => {
+    if (j.esLocal) { if (ctx.pista) ctx.pista(txt); return; }
+    if (j.conectado) Red.enviar(j.id, { t: 'aviso', txt });
+  };
 
   // ==========================================================
   // 7. MOVIMIENTO (igual que el del jugador, pero con el stick del celular)
@@ -525,7 +607,7 @@ function crearFiesta(ctx) {
     }
     ctx.resolverColisiones(h.pos, J.radio); // los obstáculos mandan
     // Mira hacia donde apunta; si no apunta, hacia donde camina
-    const ap = !viejo && (j.input.sp || (j.input.ap && !j.input.ap.c ? j.input.ap : null));
+    const ap = !viejo && (j.input.dir || j.input.sp || (j.input.ap && !j.input.ap.c ? j.input.ap : null));
     if (ap) h.dir.set(ap.x, 0, ap.z).normalize();
     else if (Math.hypot(h.vel.x, h.vel.z) > 0.5) h.dir.set(h.vel.x, 0, h.vel.z).normalize();
     h.malla.rotation.y = suavizarAngulo(h.malla.rotation.y, Math.atan2(h.dir.x, h.dir.z), 18 * dt);
@@ -586,6 +668,8 @@ function crearFiesta(ctx) {
             const r = rivalMasCercano(h, s.ataque.alcance + 1);
             p = r ? { x: r.pos.x, z: r.pos.z } : { x: h.pos.x + h.dir.x * 4, z: h.pos.z + h.dir.z * 4 };
           }
+        } else if (Number.isFinite(+m.px) && Number.isFinite(+m.pz) && m.px !== null) {
+          p = { x: +m.px, z: +m.pz }; // online desde computador: el punto exacto del mouse
         } else {
           p = puntoApuntado(h, +m.x || 0, +m.z || 0, +m.f || 0);
         }
@@ -619,6 +703,8 @@ function crearFiesta(ctx) {
         if (m.toque) {
           const r = rivalMasCercano(h, alcance + 2);
           p = r ? { x: r.pos.x, z: r.pos.z } : { x: h.pos.x + h.dir.x * alcance * 0.7, z: h.pos.z + h.dir.z * alcance * 0.7 };
+        } else if (Number.isFinite(+m.px) && Number.isFinite(+m.pz) && m.px !== null) {
+          p = { x: +m.px, z: +m.pz };
         } else {
           const mm = Math.hypot(+m.x || 0, +m.z || 0) || 1;
           const d = Math.max(1, Math.min(1, +m.f || 0) * alcance);
@@ -864,8 +950,9 @@ function crearFiesta(ctx) {
     for (const h of humanos) {
       if (jugando) mover(h, dt);
       else h.malla.position.copy(h.pos);
-      indicadores(h);
+      if (modo === 'fiesta') indicadores(h);
     }
+    if (modo === 'online') return; // online: el estado va en las fotos del partido (online.js)
     // Estado para cada celular (vida, súper, marcador…)
     tEnvio -= dt;
     if (tEnvio <= 0) {
@@ -919,7 +1006,9 @@ function crearFiesta(ctx) {
   window.__fiesta = { get balon() { return balon; }, get jugadores() { return lista(); }, get fase() { return fase; }, get humanos() { return humanos; }, sala };
 
   return {
-    abrir, cerrar, empezar, alTerminar, volverASala, colocar, actualizar, cambiarAjuste,
+    abrir, cerrar, empezar, alTerminar, volverASala, colocar, actualizar, cambiarAjuste, elegirLocal, listoLocal, datosSala,
+    get modo() { return modo; },
+    get local() { return local; },
     get fase() { return fase; },
     get activa() { return fase !== 'cerrada'; },
     get humanos() { return humanos; }

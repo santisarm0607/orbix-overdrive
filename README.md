@@ -13,6 +13,15 @@ Juego web 3D de baloncesto galáctico **3 contra 3**, inspirado en el modo Brawl
 - En la cancha aparecen **poderes**: Turbo, Escudo, Balón de fuego (+1 punto), Imán y Recarga de súper.
 - La dificultad de los rivales depende de cuántos jugadores reales hay (con 1 son suaves).
 
+## 🌐 Online (cada uno en su pantalla)
+1. Menú → **ONLINE** → escribe tu nombre.
+2. Uno toca **CREAR SALA** y les pasa el código de 4 letras a los demás (también hay un QR).
+3. Los demás tocan **UNIRSE** y escriben el código, desde su casa.
+4. Cada uno elige equipo y personaje y toca **¡LISTO!**. El anfitrión (👑) elige mapa y bots.
+5. Cada uno juega con sus controles y su propia cámara. Hasta 6 personas; los lugares libres pueden ser bots.
+
+> El anfitrión hace de servidor: conviene que sea el que tenga mejor internet.
+
 ## 📱 Modo Fiesta (una pantalla + celulares)
 1. Abre el juego en el computador o TV y toca **MODO FIESTA**.
 2. Cada persona escanea el **código QR** con su celular (hasta 6).
@@ -61,7 +70,8 @@ js/combate.js     ataques, súper, vida y reaparición
 js/bots.js        inteligencia de los bots
 js/poderes.js     poderes de la cancha
 js/red.js         conexión con los celulares (PeerJS)
-js/fiesta.js      Modo Fiesta: sala y personajes de cada persona
+js/fiesta.js      sala (Modo Fiesta y online) y personajes de cada persona
+js/online.js      online: fotos del partido y conexión del que se une
 js/control.js     lógica del control en el celular
 js/game.js        partido, controles, cámara, menús y logros
 NOTAS.md          historial de versiones y decisiones
@@ -70,4 +80,4 @@ NOTAS.md          historial de versiones y decisiones
 ## Tecnologías
 HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · PeerJS (WebRTC) · qrcode.js · Web Audio API · localStorage
 
-Versión actual: **v0.9.2** — más detalles en [NOTAS.md](NOTAS.md).
+Versión actual: **v1.0** — más detalles en [NOTAS.md](NOTAS.md).

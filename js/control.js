@@ -144,6 +144,9 @@
       case 'fin':
         mostrarFin(m);
         break;
+      case 'cerrada':
+        msgConectar('La pantalla cerró la sala.', true);
+        break;
       case 'aviso':
         if (fase === 'juego') aviso(m.txt);
         break;

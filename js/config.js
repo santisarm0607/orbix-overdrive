@@ -6,7 +6,7 @@
    ========================================================== */
 
 const CONFIG = {
-  version: 'v0.9.2',
+  version: 'v1.0',
 
   // ---------- Partido ----------
   partido: {
@@ -261,6 +261,8 @@ const CONFIG = {
     stun: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'],
     envioControl: 50,          // ms entre cada envío de los botones del celular
     envioEstado: 120,          // ms entre cada envío de la vida y la súper al celular
+    envioFoto: 50,             // online: ms entre cada "foto" del partido que manda el anfitrión (20 por segundo)
+    retrasoDibujo: 100,        // online: ms de retraso para dibujar a los demás suavemente
     maxJugadores: 6
   },
   fiesta: {
