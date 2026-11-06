@@ -444,6 +444,12 @@ SantiSarm probó el Modo Fiesta: en Android el control funcionaba bien, en iPhon
 
 ---
 
+## v1.2.1 — El stick ya no se sale de la pantalla (6 nov 2026)
+- El stick de moverse sigue apareciendo donde pones el dedo, pero si tocas cerca de un borde se corre hacia adentro para que siempre se vea completo.
+- Se arregló que el stick se dibujaba más abajo del dedo (se medía desde la pantalla y no desde su zona). Pasaba en el control del celular y en los controles táctiles del juego.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).

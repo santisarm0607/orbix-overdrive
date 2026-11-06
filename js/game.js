@@ -543,8 +543,14 @@
     e.preventDefault();
     try { elZonaMover.setPointerCapture(e.pointerId); } catch (err) { /* algunos iPhone fallan aquí */ }
     Object.assign(tactil.mover, { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 });
-    elStickMover.style.left = `${e.clientX}px`;
-    elStickMover.style.top = `${e.clientY}px`;
+    // Aparece donde tocas, pero siempre completo dentro de la pantalla
+    const r = elZonaMover.getBoundingClientRect();
+    const radio = elStickMover.offsetWidth / 2 + 6;
+    const abajo = Math.min(r.bottom, window.innerHeight);
+    const cx = Math.max(r.left + radio, Math.min(r.right - radio, e.clientX));
+    const cy = Math.max(r.top + radio, Math.min(abajo - radio, e.clientY));
+    elStickMover.style.left = `${cx - r.left}px`;  // relativo a la zona (antes quedaba más abajo del dedo)
+    elStickMover.style.top = `${cy - r.top}px`;
     elStickMover.classList.add('activo');
     moverPerilla(elPerillaMover, tactil.mover);
   });

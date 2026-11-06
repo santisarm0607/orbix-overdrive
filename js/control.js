@@ -328,6 +328,18 @@
     try { el.setPointerCapture(id); } catch (e) { /* el dedo igual se sigue por la pantalla */ }
   }
 
+  // Dónde dibujar el stick: donde tocaste, corrido hacia adentro si estabas muy cerca de un borde.
+  // Devuelve la posición relativa a la zona (antes se usaba la de la pantalla y quedaba más abajo del dedo).
+  function centroStick(zona, stick, x, y) {
+    const r = zona.getBoundingClientRect();
+    const radio = stick.offsetWidth / 2 + 6;
+    const izq = parseFloat(getComputedStyle(zona).paddingLeft) || 0; // muesca del iPhone
+    const abajo = Math.min(r.bottom, window.innerHeight);
+    const cx = Math.max(r.left + izq + radio, Math.min(r.right - radio, x));
+    const cy = Math.max(r.top + radio, Math.min(abajo - radio, y));
+    return { x: cx - r.left, y: cy - r.top };
+  }
+
   function vector(s, radio) {
     let x = s.dx / radio, y = s.dy / radio;
     const m = Math.hypot(x, y);
@@ -339,9 +351,11 @@
     if (mover.id !== null) return;
     e.preventDefault();
     capturar(zonaMover, e.pointerId);
+    // El stick aparece donde tocas, pero siempre completo dentro de la zona (sin salirse de la pantalla)
+    const c = centroStick(zonaMover, stickMover, e.clientX, e.clientY);
     Object.assign(mover, { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 });
-    stickMover.style.left = `${e.clientX}px`;
-    stickMover.style.top = `${e.clientY}px`;
+    stickMover.style.left = `${c.x}px`;
+    stickMover.style.top = `${c.y}px`;
     stickMover.classList.add('activo');
   });
   zonaMover.addEventListener('pointermove', (e) => {
