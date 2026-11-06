@@ -5,7 +5,7 @@ Juego web 3D de baloncesto galáctico **3 contra 3**, inspirado en el modo Brawl
 **Creado por SantiSarm.**
 
 ## Cómo se juega
-- Elige uno de los **6 personajes** (Nova, Kraag, Zip, Orbit, Lumen y Meteor). Los otros 5 juegan como bots: **2 compañeros y 3 rivales**.
+- Elige uno de los **6 personajes** (Nova, Kraag, Zip, Orbit, Lumen y Meteor) y el **tamaño del partido**: 1 vs 1, 2 vs 2 o 3 vs 3. Los bots llenan los lugares que falten.
 - Elige un **mapa**: Estación Orbital, Cráter Lunar (gravedad baja), Anillo de Hielo (piso resbaloso), Volcán Zeta (lava) o **al azar**.
 - Encesta en el **aro rojo** poniendo la mira dentro del aro: **2 puntos** dentro de la línea dorada y **3** desde fuera.
 - **Gana el primero en llegar a 11 puntos** o quien vaya arriba al acabar los **2:30**. Si hay empate: prórroga de 30 s y la primera canasta gana.
@@ -80,4 +80,4 @@ NOTAS.md          historial de versiones y decisiones
 ## Tecnologías
 HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · PeerJS (WebRTC) · qrcode.js · Web Audio API · localStorage
 
-Versión actual: **v1.2.1** — más detalles en [NOTAS.md](NOTAS.md).
+Versión actual: **v1.3** — más detalles en [NOTAS.md](NOTAS.md).

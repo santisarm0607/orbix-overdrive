@@ -21,10 +21,11 @@ function pintarSala(datos, op = {}) {
   const $ = (id) => document.getElementById(id);
   const escapar = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const js = datos.jugadores || [];
+  const tam = datos.tamano || 3;
   ['azul', 'rojo'].forEach((eq) => {
     const del = js.filter((j) => j.equipo === eq);
     let html = '';
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < Math.max(tam, del.length); i++) {
       const j = del[i];
       if (j) {
         const inf = j.personaje ? Personajes.info[j.personaje] : null;
@@ -48,6 +49,10 @@ function pintarSala(datos, op = {}) {
   const mandaAjustes = !op.yoNum || (yo && yo.lider);
   $('fiesta-mapa').disabled = !mandaAjustes;
   $('fiesta-bots-si').disabled = $('fiesta-bots-no').disabled = !mandaAjustes;
+  document.querySelectorAll('#fiesta-tam [data-tam]').forEach((b) => {
+    b.classList.toggle('activa', +b.dataset.tam === tam);
+    b.disabled = !mandaAjustes;
+  });
   const msg = datos.cuenta != null ? `¡Empieza en ${datos.cuenta}!` : datos.motivo || '';
   $('fiesta-msg').textContent = msg;
   $('fiesta-msg').classList.toggle('cuenta', datos.cuenta != null);
@@ -60,8 +65,8 @@ function pintarSala(datos, op = {}) {
     const b = $(`yo-${eq}`);
     const n = js.filter((j) => j.equipo === eq && j.num !== yo.num).length;
     b.classList.toggle('activa', yo.equipo === eq);
-    b.disabled = n >= 3 && yo.equipo !== eq;
-    b.querySelector('small').textContent = `${n + (yo.equipo === eq ? 1 : 0)}/3`;
+    b.disabled = n >= tam && yo.equipo !== eq;
+    b.querySelector('small').textContent = `${n + (yo.equipo === eq ? 1 : 0)}/${tam}`;
   });
   document.querySelectorAll('#yo-pj button').forEach((b) => {
     const otro = js.find((j) => j.personaje === b.dataset.id && j.num !== yo.num);
@@ -93,7 +98,7 @@ function crearFiesta(ctx) {
   // jugadores: id de conexión → datos de la persona
   const jugadores = new Map();
   let ordenLlegada = 0;
-  const sala = { mapa: 'estacion', bots: true, cuenta: null, motivo: '' };
+  const sala = { mapa: 'estacion', bots: true, tamano: 3, cuenta: null, motivo: '' }; // tamano: personas por equipo
   let fase = 'cerrada';        // 'cerrada' | 'sala' | 'juego' | 'fin'
   // Las esperas de la sala usan el reloj real (no se frenan si el juego va lento)
   let finCuenta = 0;           // momento en que termina la cuenta regresiva de la sala
@@ -212,6 +217,7 @@ function crearFiesta(ctx) {
         if (fase !== 'sala' || lider() !== j) break;
         if (m.mapa && (CONFIG.mapas[m.mapa] || m.mapa === 'azar')) sala.mapa = m.mapa;
         if (typeof m.bots === 'boolean') sala.bots = m.bots;
+        if ([1, 2, 3].includes(m.tamano)) sala.tamano = m.tamano;
         cambioSala();
         break;
       case 'in':
@@ -266,7 +272,7 @@ function crearFiesta(ctx) {
       const az = lista().filter((x) => x.equipo === 'azul').length;
       const ro = lista().filter((x) => x.equipo === 'rojo').length;
       j.equipo = az <= ro ? 'azul' : 'rojo';
-      if (lista().filter((x) => x.equipo === j.equipo).length >= 3) j.equipo = null;
+      if (lista().filter((x) => x.equipo === j.equipo).length >= sala.tamano) j.equipo = null;
     }
     j.visto = ahora();
     jugadores.set(id, j);
@@ -292,7 +298,7 @@ function crearFiesta(ctx) {
   function elegir(j, m) {
     if (fase !== 'sala') return;
     if (m.equipo === 'azul' || m.equipo === 'rojo') {
-      const llenos = lista().filter((x) => x !== j && x.equipo === m.equipo).length >= 3;
+      const llenos = lista().filter((x) => x !== j && x.equipo === m.equipo).length >= sala.tamano;
       if (!llenos) j.equipo = m.equipo;
       j.listo = false;
     }
@@ -315,6 +321,10 @@ function crearFiesta(ctx) {
     if (!js.length) return 'Esperando jugadores…';
     const sinElegir = js.filter((j) => !j.equipo || !j.personaje);
     if (sinElegir.length) return `${sinElegir.map((j) => j.nombre).join(', ')}: falta elegir equipo o personaje`;
+    // Si bajaron el tamaño, puede haber un equipo con más personas de las que caben
+    for (const eq of ['azul', 'rojo']) {
+      if (js.filter((j) => j.equipo === eq).length > sala.tamano) return `El equipo ${eq} tiene más de ${sala.tamano}: alguien debe cambiarse`;
+    }
     if (!sala.bots) {
       const az = js.some((j) => j.equipo === 'azul'), ro = js.some((j) => j.equipo === 'rojo');
       if (!az || !ro) return 'Sin bots, cada equipo necesita al menos una persona';
@@ -353,7 +363,7 @@ function crearFiesta(ctx) {
       jugadores: lista().filter((j) => j.conectado).map((j) => ({
         num: j.num, nombre: j.nombre, equipo: j.equipo, personaje: j.personaje, listo: j.listo, lider: j === l
       })),
-      mapa: sala.mapa, bots: sala.bots, cuenta: sala.cuenta,
+      mapa: sala.mapa, bots: sala.bots, tamano: sala.tamano, cuenta: sala.cuenta,
       motivo: fase === 'juego' ? 'Hay un partido en curso. Entras en el próximo.' : sala.motivo
     };
   }
@@ -396,6 +406,7 @@ function crearFiesta(ctx) {
       mapaId,
       ocupados: js.map((j) => ({ personaje: j.personaje, equipo: j.equipo })),
       rellenar: sala.bots,
+      tamano: sala.tamano,
       personas: js.length
     });
     Red.enviarATodos({ t: 'fase', f: 'juego' });

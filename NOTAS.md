@@ -450,6 +450,15 @@ SantiSarm probó el Modo Fiesta: en Android el control funcionaba bien, en iPhon
 
 ---
 
+## v1.3 — Elegir el tamaño del partido (6 nov 2026)
+Idea de SantiSarm: poder escoger con cuántos bots jugar. Se eligió por **tamaño del partido**:
+- **1 vs 1, 2 vs 2 o 3 vs 3.** Los bots llenan los lugares que falten.
+- **Solo:** se elige en la pantalla del mapa (debajo de los mapas). Se recuerda para la próxima vez.
+- **Online y Modo Fiesta:** en la sala, junto a Mapa y Bots, aparece "Equipos". Lo cambia el anfitrión, la pantalla o el líder 👑 desde su celular. Cada equipo admite solo esa cantidad de personas; si alguien baja el tamaño y sobran personas en un equipo, la sala avisa que alguien debe cambiarse.
+- Probado: partidos completos 1 vs 1 (2 personajes), 2 vs 2 (4) y 3 vs 3 (6), y una sala del Modo Fiesta en 2 vs 2.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -474,4 +483,5 @@ SantiSarm probó el Modo Fiesta: en Android el control funcionaba bien, en iPhon
 - [x] **v1.0** — **Online**: cada uno en su pantalla, con sala, código y anfitrión.
 - [x] **v1.1** — Menú más simple: JUGAR → modo → personaje → mapa.
 - [x] **v1.2** — Control del celular funcionando en iPhone.
+- [x] **v1.3** — Tamaño del partido: 1 vs 1, 2 vs 2 o 3 vs 3.
 - [ ] **Futuro** — Rival League (ranking), servidor TURN para redes difíciles.

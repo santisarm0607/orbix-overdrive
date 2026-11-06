@@ -229,6 +229,7 @@
   $('sel-mapa').addEventListener('change', (e) => enviar({ t: 'config', mapa: e.target.value }));
   $('bots-si').addEventListener('click', () => enviar({ t: 'config', bots: true }));
   $('bots-no').addEventListener('click', () => enviar({ t: 'config', bots: false }));
+  document.querySelectorAll('.opcion.tam').forEach((b) => b.addEventListener('click', () => enviar({ t: 'config', tamano: +b.dataset.tam })));
 
   function irASala() {
     fase = 'sala';
@@ -254,12 +255,13 @@
 
   function pintarSala() {
     const js = sala ? sala.jugadores : [];
+    const tam = (sala && sala.tamano) || 3;
     // Equipos
     ['azul', 'rojo'].forEach((eq) => {
       const n = js.filter((j) => j.equipo === eq && j.num !== yo.num).length;
       const btn = $(`eq-${eq}`);
-      $(`cnt-${eq}`).textContent = `${n + (miEquipo === eq ? 1 : 0)}/3`;
-      btn.disabled = n >= 3 && miEquipo !== eq;
+      $(`cnt-${eq}`).textContent = `${n + (miEquipo === eq ? 1 : 0)}/${tam}`;
+      btn.disabled = n >= tam && miEquipo !== eq;
       btn.classList.toggle('activo', miEquipo === eq);
     });
     // Personajes: los que tomó otra persona quedan bloqueados
@@ -281,6 +283,7 @@
       $('sel-mapa').value = sala.mapa;
       $('bots-si').classList.toggle('activa', sala.bots);
       $('bots-no').classList.toggle('activa', !sala.bots);
+      document.querySelectorAll('.opcion.tam').forEach((b) => b.classList.toggle('activa', +b.dataset.tam === tam));
     }
     // Listo
     const btn = $('btn-listo');

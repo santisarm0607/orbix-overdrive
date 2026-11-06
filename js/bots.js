@@ -33,11 +33,13 @@ function crearBots(ctx) {
   // Un jugador: preparar('nova') → 2 compañeros y 3 rivales con los demás personajes.
   // Modo Fiesta: preparar({ ocupados: [{ personaje, equipo }], rellenar, personas })
   //   → los bots solo llenan los lugares libres (o ninguno si rellenar = false).
-  function preparar(opciones) {
+  // tamano: personas por equipo (1 = 1 vs 1, 2 = 2 vs 2, 3 = 3 vs 3)
+  function preparar(opciones, tamano = 3) {
     lista.forEach((b) => { combate.quitar(b); scene.remove(b.malla); });
     lista = [];
     const fiesta = typeof opciones === 'object';
     const ocupados = fiesta ? opciones.ocupados : [{ personaje: opciones, equipo: 'azul' }];
+    const tam = Math.max(1, Math.min(3, (fiesta ? opciones.tamano : tamano) || 3));
     nivelFiesta = fiesta ? BOT.rivales[Math.max(1, Math.min(5, opciones.personas || 1))] : null;
     if (fiesta && !opciones.rellenar) return lista;
 
@@ -46,11 +48,11 @@ function crearBots(ctx) {
       const j = Math.floor(Math.random() * (i + 1));
       [resto[i], resto[j]] = [resto[j], resto[i]];
     }
-    // Cada equipo tiene 3 lugares: las personas toman los primeros, los bots el resto
+    // Cada equipo tiene "tam" lugares: las personas toman los primeros, los bots el resto
     ['azul', 'rojo'].forEach((eq) => {
       const apariciones = eq === 'azul' ? C.aparicionesAzul : C.aparicionesRojo;
       const personas = ocupados.filter((o) => o.equipo === eq).length;
-      for (let i = personas; i < 3 && resto.length; i++) crear(resto.shift(), eq, apariciones[i], CARRILES[i]);
+      for (let i = personas; i < tam && resto.length; i++) crear(resto.shift(), eq, apariciones[i], CARRILES[i]);
     });
     return lista;
   }

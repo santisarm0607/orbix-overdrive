@@ -168,6 +168,11 @@
               <button id="fiesta-bots-si" class="opcion">SÍ</button>
               <button id="fiesta-bots-no" class="opcion">NO</button>
             </span>
+            <span id="fiesta-tam" class="fiesta-bots">Equipos
+              <button class="opcion" data-tam="1">1 vs 1</button>
+              <button class="opcion" data-tam="2">2 vs 2</button>
+              <button class="opcion" data-tam="3">3 vs 3</button>
+            </span>
           </div>
           <!-- Online: lo que tú eliges (tú también juegas) -->
           <div id="sala-yo" class="sala-yo" hidden>
@@ -218,6 +223,13 @@
     <div class="panel panel-mapas">
       <h2>ELIGE EL MAPA</h2>
       <div id="lista-mapas" class="lista-mapas"></div>
+      <div class="tamano-partido">
+        <span>Partido</span>
+        <button class="opcion" data-tam="1">1 vs 1</button>
+        <button class="opcion" data-tam="2">2 vs 2</button>
+        <button class="opcion" data-tam="3">3 vs 3</button>
+        <small id="tam-info"></small>
+      </div>
       <div class="botones fila">
         <button data-accion="volver-personajes">VOLVER</button>
         <button data-accion="confirmar-mapa" class="principal">¡A JUGAR!</button>

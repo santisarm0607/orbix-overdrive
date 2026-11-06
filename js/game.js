@@ -1745,7 +1745,7 @@
     partido.stats = { tiros: 0, canastas: 0, triples: 0, puntos: 0, eliminaciones: 0, poderes: 0, robos: 0, asistencias: 0 };
     partido.peorDiferencia = 0;
     partido.racha = 0;
-    bots.preparar(fiestaOpc || jugador.personaje);
+    bots.preparar(fiestaOpc || jugador.personaje, progreso.tamano || 3);
     combate.reiniciarTodos();
     poderes.reiniciar();
     jugador.impulsoCd = 0;
@@ -1771,7 +1771,8 @@
     }
     elTactil.classList.add('visible');
     const companeros = bots.lista.filter((b) => b.equipo === 'azul').map((b) => b.nombre).join(' y ');
-    partido.infoInicio = `Tus compañeros: ${companeros} · Primero a ${CONFIG.partido.puntosParaGanar}`;
+    const tam = progreso.tamano || 3;
+    partido.infoInicio = `${tam} vs ${tam} · ${companeros ? `Tus compañeros: ${companeros}` : 'Sin compañeros'} · Primero a ${CONFIG.partido.puntosParaGanar}`;
     const reales = CONFIG.bots.jugadoresReales;
     mostrarPista(`${mapa.icono} ${mapa.nombre}: ${mapa.efecto} · rivales nivel ${nombreNivel(reales)}`);
     actualizarHUD();
@@ -2226,6 +2227,20 @@
   $('version').textContent = CONFIG.version;
   $('meta-puntos').textContent = `PRIMERO A ${CONFIG.partido.puntosParaGanar}`;
 
+  // Solo: tamaño del partido (cuántos por equipo; los bots llenan los lugares)
+  function pintarTamano() {
+    const t = progreso.tamano || 3;
+    document.querySelectorAll('.tamano-partido [data-tam]').forEach((b) => b.classList.toggle('activa', +b.dataset.tam === t));
+    $('tam-info').textContent = t === 1 ? 'Tú contra 1 bot' : `Tú y ${t - 1} ${t - 1 === 1 ? 'bot' : 'bots'} contra ${t} bots`;
+  }
+  document.querySelectorAll('.tamano-partido [data-tam]').forEach((b) => b.addEventListener('click', () => {
+    progreso.tamano = +b.dataset.tam;
+    guardarProgreso();
+    pintarTamano();
+    Sonido.sfx.click();
+  }));
+  pintarTamano();
+
   // ==========================================================
   // 13e. MODO FIESTA (una pantalla + celulares como control)
   // ==========================================================
@@ -2305,6 +2320,7 @@
   $('fiesta-mapa').addEventListener('change', (e) => ajusteSala({ mapa: e.target.value }));
   $('fiesta-bots-si').addEventListener('click', () => ajusteSala({ bots: true }));
   $('fiesta-bots-no').addEventListener('click', () => ajusteSala({ bots: false }));
+  document.querySelectorAll('#fiesta-tam [data-tam]').forEach((b) => b.addEventListener('click', () => ajusteSala({ tamano: +b.dataset.tam })));
 
   // ==========================================================
   // 13f. ONLINE: cada uno en su pantalla
