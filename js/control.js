@@ -35,6 +35,20 @@
   // ==========================================================
   // VISTAS
   // ==========================================================
+  // Vibrar: Android lo hace con navigator.vibrate. El iPhone no lo permite en páginas web;
+  // en iOS 18 o más se usa un truco (un interruptor escondido que da un "toque" de vibración).
+  const esIPhone = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let tToque = 0;
+  function vibrar(ms) {
+    if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* nada */ } return; }
+    const ahora = performance.now();
+    if (ahora - tToque < 120) return;
+    tToque = ahora;
+    const l = document.getElementById('toque-ios');
+    if (l) { try { l.click(); } catch (e) { /* nada */ } }
+  }
+  document.body.classList.toggle('ios', esIPhone);
+
   function mostrarVista(id) {
     document.querySelectorAll('.vista').forEach((v) => v.classList.toggle('activa', v.id === id));
     document.body.classList.toggle('en-juego', id === 'vista-juego');
@@ -104,7 +118,20 @@
     if (fase === 'conectar') return;
     $('perdida').hidden = false;
     $('btn-conectar').disabled = false;
+    // Si la página está a la vista, intenta volver a entrar sola en 1 s
+    if (document.visibilityState === 'visible') setTimeout(reconectarSolo, 1000);
   }
+  let reconectando = false;
+  function reconectarSolo() {
+    if ($('perdida').hidden || reconectando) return;
+    reconectando = true;
+    $('perdida').hidden = true;
+    conectar();
+    setTimeout(() => { reconectando = false; }, 4000);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !$('perdida').hidden) reconectarSolo();
+  });
 
   function enviar(msg) {
     if (conn && conn.open) conn.send(msg);
@@ -139,7 +166,7 @@
         actualizarControl();
         break;
       case 'vibrar':
-        if (navigator.vibrate) navigator.vibrate(m.ms || 60);
+        vibrar(m.ms || 60);
         break;
       case 'fin':
         mostrarFin(m);
@@ -296,6 +323,11 @@
   const stickAtaque = $('stick-ataque');
   const perillaAtaque = stickAtaque.querySelector('.perilla');
 
+  // En algunos iPhone "capturar el dedo" falla y antes eso dejaba el stick sin funcionar
+  function capturar(el, id) {
+    try { el.setPointerCapture(id); } catch (e) { /* el dedo igual se sigue por la pantalla */ }
+  }
+
   function vector(s, radio) {
     let x = s.dx / radio, y = s.dy / radio;
     const m = Math.hypot(x, y);
@@ -306,7 +338,7 @@
   zonaMover.addEventListener('pointerdown', (e) => {
     if (mover.id !== null) return;
     e.preventDefault();
-    zonaMover.setPointerCapture(e.pointerId);
+    capturar(zonaMover, e.pointerId);
     Object.assign(mover, { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 });
     stickMover.style.left = `${e.clientX}px`;
     stickMover.style.top = `${e.clientY}px`;
@@ -327,13 +359,19 @@
   };
   zonaMover.addEventListener('pointerup', soltarMover);
   zonaMover.addEventListener('pointercancel', soltarMover);
+  // Si el celular no "capturó" el dedo, se sigue en toda la pantalla
+  document.addEventListener('pointermove', (e) => {
+    if (e.target === zonaMover || zonaMover.contains(e.target)) return;
+    if (e.pointerId === mover.id) zonaMover.dispatchEvent(new PointerEvent('pointermove', e));
+  });
+  document.addEventListener('pointerup', (e) => { if (e.pointerId === mover.id && !zonaMover.contains(e.target)) soltarMover(e); });
 
   // Stick de ataque / tiro
   function alcanceAtaque() { return Math.min(1, Math.hypot(ataque.dx, ataque.dy) / TC.radioApuntado); }
   stickAtaque.addEventListener('pointerdown', (e) => {
     if (ataque.id !== null) return;
     e.preventDefault();
-    stickAtaque.setPointerCapture(e.pointerId);
+    capturar(stickAtaque, e.pointerId);
     const r = stickAtaque.getBoundingClientRect();
     Object.assign(ataque, { id: e.pointerId, x0: r.left + r.width / 2, y0: r.top + r.height / 2, dx: 0, dy: 0, arrastrado: false, t0: performance.now() });
     stickAtaque.classList.add('activo');
@@ -372,7 +410,7 @@
     e.preventDefault();
     if (superS.id !== null) return;
     if (!estado || estado.carga < 1) { aviso(`Súper al ${estado ? Math.floor(estado.carga * 100) : 0} %`); return; }
-    bSuper.setPointerCapture(e.pointerId);
+    capturar(bSuper, e.pointerId);
     const r = bSuper.getBoundingClientRect();
     Object.assign(superS, { id: e.pointerId, x0: r.left + r.width / 2, y0: r.top + r.height / 2, dx: 0, dy: 0, arrastrado: false });
     bSuper.classList.add('activo');
@@ -395,11 +433,24 @@
   bSuper.addEventListener('pointercancel', () => { superS.id = null; bSuper.classList.remove('activo'); });
 
   // Botones simples
-  const boton = (id, fn) => $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); fn(); if (navigator.vibrate) navigator.vibrate(15); });
+  const boton = (id, fn) => $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); fn(); vibrar(15); });
   boton('b-impulso', () => enviar({ t: 'accion', a: 'impulso' }));
 
-  // Evitar zoom y scroll
-  document.addEventListener('touchmove', (e) => { if (fase === 'juego') e.preventDefault(); }, { passive: false });
+  // ---------- iPhone (Safari) ----------
+  // Safari no respeta "sin zoom": usar los dos pulgares a la vez lo toma como pellizco (zoom),
+  // y mantener el dedo quieto abre la lupa o selecciona texto. Aquí se bloquea todo eso
+  // durante el partido. Los sticks y botones siguen funcionando porque usan "pointer".
+  const bloquearToque = (e) => {
+    if (fase !== 'juego') return;
+    if (e.target.closest && e.target.closest('#btn-pantalla, #perdida, #gira')) return;
+    e.preventDefault();
+  };
+  document.addEventListener('touchstart', bloquearToque, { passive: false });
+  document.addEventListener('touchmove', bloquearToque, { passive: false });
+  document.addEventListener('touchend', bloquearToque, { passive: false });
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('contextmenu', (e) => { if (fase === 'juego') e.preventDefault(); });
 
   // ---------- Envío continuo de los sticks ----------
   setInterval(() => {
@@ -434,9 +485,17 @@
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
 
+  let vidaAntes = null;
   function actualizarControl() {
     if (!estado) return;
     const e = estado;
+    if (vidaAntes !== null && e.vivo && e.vida < vidaAntes - 1) {
+      const g = $('golpe');
+      g.classList.remove('activo');
+      void g.offsetWidth; // reinicia la animación
+      g.classList.add('activo');
+    }
+    vidaAntes = e.vivo ? e.vida : null;
     const fv = Math.max(0, e.vida / e.vidaMax);
     $('j-vida').style.width = `${fv * 100}%`;
     $('j-vida').classList.toggle('baja', fv < 0.35);
@@ -496,14 +555,15 @@
       ? `<li><span>Puntos</span><b>${yoStats.puntos}</b></li><li><span>Eliminaciones</span><b>${yoStats.elims}</b></li>`
       : '';
     $('fin-msg').textContent = 'Volvemos a la sala en unos segundos…';
-    if (navigator.vibrate) navigator.vibrate(gano ? [80, 60, 80, 60, 200] : 200);
+    vibrar(gano ? [80, 60, 80, 60, 200] : 200);
     listo = false;
   }
 
   // ==========================================================
   // Otros
   // ==========================================================
-  // Pantalla completa
+  // Pantalla completa (el iPhone no la permite en páginas web: el botón se esconde)
+  if (!document.documentElement.requestFullscreen) $('btn-pantalla').hidden = true;
   $('btn-pantalla').addEventListener('click', () => {
     const el = document.documentElement;
     if (!document.fullscreenElement && el.requestFullscreen) {

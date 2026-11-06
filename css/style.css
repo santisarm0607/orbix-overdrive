@@ -1081,3 +1081,7 @@ button.modo:hover, button.modo:focus-visible { transform: translateY(-3px); back
   button.modo b { font-size: 15px; }
   button.modo small { font-size: 12px; }
 }
+
+/* iPhone: sin lupa ni menú al mantener presionado durante el partido */
+body.en-partido, body.en-partido * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+html, body { -webkit-text-size-adjust: 100%; }

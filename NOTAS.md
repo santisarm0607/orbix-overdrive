@@ -431,6 +431,19 @@ Idea de SantiSarm: que el menú principal no tenga tantas opciones.
 
 ---
 
+## v1.2 — Control del celular en iPhone (6 nov 2026)
+SantiSarm probó el Modo Fiesta: en Android el control funcionaba bien, en iPhone no. Safari del iPhone tiene varias diferencias:
+- **Zoom con los dos pulgares:** Safari ignora "sin zoom" y toma los dos pulgares (uno en cada stick) como un pellizco. Ahora se bloquean los gestos de zoom y el toque por defecto durante el partido; los sticks usan "pointer" y siguen funcionando.
+- **Lupa, menú y selección de texto** al mantener el dedo quieto: bloqueados (`-webkit-touch-callout`, `user-select`).
+- **"Capturar el dedo" (setPointerCapture) puede fallar** y dejaba el stick sin responder: ahora se intenta con cuidado y, si falla, el dedo se sigue en toda la pantalla.
+- **No hay vibración** en páginas web del iPhone: ahora hay un **destello rojo** en los bordes al recibir daño (en todos los celulares) y, en iOS 18 o más, un "toque" de vibración con un interruptor escondido.
+- **No hay pantalla completa:** el botón se esconde en iPhone y la pantalla de conectar explica cómo hacerlo con *Compartir → Agregar a inicio*.
+- **La muesca** del iPhone en horizontal ya no tapa el stick izquierdo.
+- **Al bloquear la pantalla o cambiar de app** el iPhone corta la conexión: ahora el control vuelve a entrar solo al regresar.
+- Lo mismo (zoom, lupa, captura) se arregló en los controles táctiles del juego principal (Solo y Online).
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -454,4 +467,5 @@ Idea de SantiSarm: que el menú principal no tenga tantas opciones.
 - [x] **v0.9.2** — Correcciones de las pruebas automáticas (apariciones, colisiones, salto de Kraag, nombre del jugador).
 - [x] **v1.0** — **Online**: cada uno en su pantalla, con sala, código y anfitrión.
 - [x] **v1.1** — Menú más simple: JUGAR → modo → personaje → mapa.
+- [x] **v1.2** — Control del celular funcionando en iPhone.
 - [ ] **Futuro** — Rival League (ranking), servidor TURN para redes difíciles.

@@ -541,7 +541,7 @@
   elZonaMover.addEventListener('pointerdown', (e) => {
     if (tactil.mover.id !== null) return;
     e.preventDefault();
-    elZonaMover.setPointerCapture(e.pointerId);
+    try { elZonaMover.setPointerCapture(e.pointerId); } catch (err) { /* algunos iPhone fallan aquí */ }
     Object.assign(tactil.mover, { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 });
     elStickMover.style.left = `${e.clientX}px`;
     elStickMover.style.top = `${e.clientY}px`;
@@ -568,7 +568,7 @@
   elStickAtaque.addEventListener('pointerdown', (e) => {
     if (tactil.apuntar.id !== null) return;
     e.preventDefault();
-    elStickAtaque.setPointerCapture(e.pointerId);
+    try { elStickAtaque.setPointerCapture(e.pointerId); } catch (err) { /* algunos iPhone fallan aquí */ }
     const r = elStickAtaque.getBoundingClientRect();
     Object.assign(tactil.apuntar, {
       id: e.pointerId, x0: r.left + r.width / 2, y0: r.top + r.height / 2,
@@ -678,7 +678,7 @@
     e.stopPropagation();
     if (superTactil.id !== null) return;
     if (jugador.carga < 1) { mostrarPista(`Súper cargada al ${Math.floor(jugador.carga * 100)} %`); return; }
-    elSuper.setPointerCapture(e.pointerId);
+    try { elSuper.setPointerCapture(e.pointerId); } catch (err) { /* algunos iPhone fallan aquí */ }
     const r = elSuper.getBoundingClientRect();
     Object.assign(superTactil, { id: e.pointerId, x0: r.left + r.width / 2, y0: r.top + r.height / 2, dx: 0, dy: 0, arrastrado: false });
     elSuper.classList.add('activo');
@@ -721,6 +721,15 @@
 
   // Evita que el navegador haga zoom o scroll mientras juegas
   elTactil.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  // iPhone (Safari): los dos pulgares a la vez se toman como pellizco (zoom) y mantener
+  // presionado abre la lupa. En el partido se bloquea (los controles usan "pointer").
+  const enPartidoTactil = () => tactil.activo && (estado === 'jugando' || estado === 'canasta' || estado === 'cuenta');
+  ['touchstart', 'touchmove', 'touchend'].forEach((t) => document.addEventListener(t, (e) => {
+    if (!enPartidoTactil()) return;
+    if (e.target.closest && e.target.closest('button, .pantalla.activa, #btn-pantalla-completa')) return;
+    e.preventDefault();
+  }, { passive: false }));
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
 
   // Si el jugador cambia de pestaña, el juego se pausa solo
   window.addEventListener('blur', () => {

@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b0820">
+  <!-- iPhone: si lo agregas a la pantalla de inicio se abre a pantalla completa -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ORBIX Control">
+  <meta name="format-detection" content="telephone=no">
   <title>ORBIX: Overdrive · Control</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,6 +29,7 @@
       <input id="in-codigo" maxlength="4" autocomplete="off" placeholder="ABCD" class="codigo">
       <button id="btn-conectar" class="principal">CONECTAR</button>
       <p id="msg-conectar" class="msg"></p>
+      <p class="tip-ios">📱 <b>iPhone:</b> gira el celular para jugar. Para pantalla completa: botón <b>Compartir</b> → <b>Agregar a inicio</b> y ábrelo desde ahí. Desactiva el <b>modo bajo consumo</b> y no bloquees la pantalla durante el partido.</p>
     </div>
   </section>
 
@@ -98,7 +105,12 @@
     </div>
 
     <div id="aviso-estado" class="aviso-estado"></div>
+    <!-- Destello rojo cuando te golpean (en el iPhone reemplaza la vibración) -->
+    <div id="golpe" class="golpe"></div>
   </section>
+
+  <!-- iPhone (iOS 18+): este interruptor escondido produce un "toque" de vibración -->
+  <label id="toque-ios" class="toque-ios" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
 
   <!-- ===================== 4. RESULTADO ===================== -->
   <section id="vista-fin" class="vista">
