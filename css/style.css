@@ -1031,3 +1031,27 @@ body.espectador #panel-accion, body.espectador #tactil, body.espectador #buffs, 
   .online-opciones { grid-template-columns: 1fr; }
   .yo-pj { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ===================== v1.0.1: menú principal más compacto ===================== */
+/* Con el botón ONLINE el menú no cabía y salía una barra blanca para bajar.
+   Ahora JUGAR va grande y los demás de a dos. */
+.panel.titulo .botones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 250px));
+  justify-content: center;
+  gap: 12px;
+}
+.panel.titulo .botones button { min-width: 0; width: 100%; margin-top: 0; white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+.panel.titulo .botones .principal { grid-column: 1 / -1; justify-self: center; width: 300px; }
+.panel.titulo .botones button:last-child:nth-child(even) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 6px); }
+.panel.titulo { overflow: visible; }
+
+/* Si algún panel necesita bajar, la barra es delgada y del color del juego (no blanca) */
+.panel { scrollbar-width: thin; scrollbar-color: rgba(122, 240, 255, 0.45) transparent; }
+.panel::-webkit-scrollbar { width: 6px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: rgba(122, 240, 255, 0.45); border-radius: 3px; }
+@media (max-height: 450px) {
+  .panel.titulo .botones { gap: 8px; grid-template-columns: repeat(2, minmax(0, 200px)); }
+  .panel.titulo .botones .principal { width: 100%; }
+}
