@@ -17,7 +17,7 @@ Juego web 3D de baloncesto galáctico **3 contra 3**, inspirado en el modo Brawl
 1. Menú → **JUGAR** → **ONLINE** → escribe tu nombre.
 2. Uno toca **CREAR SALA** y les pasa el código de 4 letras a los demás (también hay un QR).
 3. Los demás tocan **UNIRSE** y escriben el código, desde su casa.
-4. Cada uno elige equipo y personaje y toca **¡LISTO!**. El anfitrión (👑) elige mapa y bots.
+4. Cada uno elige su equipo y el anfitrión (👑) elige mapa, bots y tamaño. Cuando estén todos, el anfitrión toca **ELEGIR PERSONAJES**: todos ven los personajes en 3D, eligen el suyo y tocan **¡LISTO!**.
 5. Cada uno juega con sus controles y su propia cámara. Hasta 6 personas; los lugares libres pueden ser bots.
 
 > El anfitrión hace de servidor: conviene que sea el que tenga mejor internet.
@@ -80,4 +80,4 @@ NOTAS.md          historial de versiones y decisiones
 ## Tecnologías
 HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · PeerJS (WebRTC) · qrcode.js · Web Audio API · localStorage
 
-Versión actual: **v1.3.2** — más detalles en [NOTAS.md](NOTAS.md).
+Versión actual: **v1.4** — más detalles en [NOTAS.md](NOTAS.md).

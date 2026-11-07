@@ -1738,6 +1738,7 @@
   // ==========================================================
   // fiestaOpc (Modo Fiesta): { ocupados, rellenar, personas } → los bots solo llenan lugares libres
   function iniciarPartido(fiestaOpc) {
+    document.body.classList.remove('sel-online');
     partido.tiempo = CONFIG.partido.duracion;
     partido.prorroga = false;
     partido.marcador.azul = 0;
@@ -1959,7 +1960,11 @@
       b.dataset.id = id;
       b.style.setProperty('--color-pj', inf.color);
       b.innerHTML = `<b>${inf.nombre}</b><small>${inf.rol}</small>`;
-      b.addEventListener('click', () => { Sonido.sfx.elegir(); elegir(id); });
+      b.addEventListener('click', () => {
+        Sonido.sfx.elegir();
+        elegir(id); // la vista 3D muestra al personaje (aunque ya lo tenga otro)
+        if (document.body.classList.contains('sel-online')) elegirPersonajeOnline(id, b);
+      });
       lista.appendChild(b);
     });
     mostrarPantalla('pantalla-personajes');
@@ -2188,7 +2193,11 @@
       Sonido.sfx.click();
       switch (btn.dataset.accion) {
         case 'jugar': mostrarPantalla('pantalla-modo'); break;   // 1. ¿cómo quieres jugar?
-        case 'modo-solo': abrirSeleccion(); break;                // 2. personaje → 3. mapa → partido
+        case 'modo-solo': document.body.classList.remove('sel-online'); abrirSeleccion(); break; // 2. personaje → 3. mapa → partido
+        case 'sel-volver':
+          if (online === 'host') fiesta.volverAEquipos();
+          else salirOnline();
+          break;
         case 'volver-modo': mostrarPantalla('pantalla-modo'); break;
         case 'fiesta': abrirFiesta(); break;
         case 'fiesta-empezar': fiesta.empezar(); break;
@@ -2271,12 +2280,14 @@
       jugador.barra.querySelector('.nombre').textContent = jugador.nombre;
     },
     pista: mostrarPista,
+    alSalaOnline: (datos, op) => salaOnline(datos, op.yoNum, true, op.puedeEmpezar),
     alEmpezar: () => { if (online === 'host') onlineMod.alEmpezar(); },
     alReconectar: (id) => { if (online === 'host') onlineMod.alReconectar(id); }
   });
 
   // Fondo de la sala: cancha vacía con el balón en el centro
   function mostrarSalaFiesta() {
+    document.body.classList.remove('sel-online');
     estado = 'menu';
     ui.hud.classList.remove('visible');
     bots.preparar({ ocupados: [], rellenar: false });
@@ -2334,6 +2345,7 @@
     estado: () => estado,
     mapaId: () => Object.keys(CONFIG.mapas).find((k) => CONFIG.mapas[k] === mapa),
     enSala: () => $('pantalla-fiesta').classList.contains('activa'),
+    alSala: (datos, yoNum) => { if (!cli.activo) salaOnline(datos, yoNum, false, false); },
     alBienvenido: mostrarSalaCliente,
     alInicio: clienteIniciar,
     alFoto: clienteFoto,
@@ -2372,7 +2384,7 @@
   function salirOnlineHost() {
     fiesta.cerrar();
     online = null;
-    document.body.classList.remove('online', 'online-host');
+    document.body.classList.remove('online', 'online-host', 'sel-online', 'etapa-conectar');
     reiniciarFondoMenu();
     irAlMenu();
     mostrarPantalla('pantalla-modo');
@@ -2395,7 +2407,15 @@
     $('fiesta-titulo').innerHTML = 'SALA ONLINE <small>elige tu equipo y tu personaje</small>';
     mostrarSalaFiesta();
     $('fiesta-codigo').textContent = codigo;
-    $('fiesta-estado').textContent = 'Conectado a la sala';
+    // El QR también se ve aquí: cualquiera en la sala puede invitar a más amigos
+    const url = new URL('index.html', location.href);
+    url.hash = 'sala=' + codigo;
+    $('fiesta-qr').innerHTML = '';
+    if (typeof QRCode !== 'undefined') {
+      new QRCode($('fiesta-qr'), { text: url.href, width: 200, height: 200, colorDark: '#0b0820', colorLight: '#ffffff' });
+    }
+    $('fiesta-url').textContent = url.href.replace(/^https?:\/\//, '');
+    $('fiesta-estado').textContent = 'Conectado. Para invitar a más amigos, que escaneen este código.';
     $('fiesta-estado').classList.remove('error');
   }
 
@@ -2419,7 +2439,7 @@
     limpiarMunecos();
     cli.activo = false;
     online = null;
-    document.body.classList.remove('online', 'online-cliente', 'espectador');
+    document.body.classList.remove('online', 'online-cliente', 'espectador', 'sel-online', 'etapa-conectar');
     estado = 'menu';
     ui.hud.classList.remove('visible');
     elTactil.classList.remove('visible');
@@ -2427,6 +2447,73 @@
     if (motivo && estaba) abrirPantallaOnline('', motivo);
     else mostrarPantalla('pantalla-modo');
   }
+
+  // ---------- Sala online por etapas ----------
+  // 1) "conectar": la sala con el QR, equipos, mapa, bots y tamaño
+  // 2) "personajes": la pantalla de personajes con la vista 3D, para todos a la vez
+  let datosSalaOnline = null;
+  function salaOnline(datos, yoNum, esHost, puedeEmpezar) {
+    datosSalaOnline = { datos, yoNum, esHost };
+    document.body.classList.toggle('etapa-conectar', datos.etapa === 'conectar');
+    if (datos.etapa === 'personajes') {
+      mostrarSeleccionOnline(datos, yoNum, esHost, puedeEmpezar);
+      return;
+    }
+    if (!$('pantalla-fiesta').classList.contains('activa')) mostrarSalaFiesta();
+    pintarSala(datos, { yoNum, puedeEmpezar });
+    if (esHost) $('fiesta-empezar').textContent = 'ELEGIR PERSONAJES →';
+  }
+
+  function mostrarSeleccionOnline(datos, yoNum, esHost, puedeEmpezar) {
+    const yo = datos.jugadores.find((j) => j.num === yoNum);
+    const yaAbierta = $('pantalla-personajes').classList.contains('activa') && document.body.classList.contains('sel-online');
+    if (!yaAbierta) {
+      document.body.classList.add('sel-online');
+      abrirSeleccion();
+      // Arranca mostrando el personaje que ya tenga, o el primero libre
+      const libre = Personajes.lista.find((id) => !datos.jugadores.some((j) => j.personaje === id));
+      elegir((yo && yo.personaje) || libre || seleccionActual);
+    }
+    document.querySelectorAll('.tarjeta-personaje').forEach((b) => {
+      const otro = datos.jugadores.find((j) => j.personaje === b.dataset.id && j.num !== yoNum);
+      const mio = yo && yo.personaje === b.dataset.id;
+      b.classList.toggle('ocupado', !!otro);
+      b.classList.toggle('mio', !!mio);
+      let q = b.querySelector('.quien');
+      if (!q) { q = document.createElement('i'); q.className = 'quien'; b.appendChild(q); }
+      q.textContent = otro ? `P${otro.num} ${otro.nombre}` : mio ? 'TÚ' : '';
+    });
+    $('sel-jugadores').innerHTML = datos.jugadores.map((j) => {
+      const inf = j.personaje ? Personajes.info[j.personaje] : null;
+      return `<li class="${j.equipo || ''}${j.listo ? ' listo' : ''}${j.num === yoNum ? ' yo' : ''}" style="--c:${inf ? inf.color : '#777'}">
+        <b>P${j.num} ${escaparHTML(j.nombre)}</b><small>${inf ? inf.nombre : 'eligiendo…'}</small><span>${j.listo ? '✔' : ''}</span></li>`;
+    }).join('');
+    const listo = $('sel-listo');
+    listo.textContent = yo && yo.listo ? '✔ LISTO' : '¡LISTO!';
+    listo.classList.toggle('esta-listo', !!(yo && yo.listo));
+    listo.disabled = !(yo && yo.personaje);
+    $('sel-empezar').hidden = !esHost;
+    $('sel-empezar').disabled = !puedeEmpezar;
+    $('sel-volver').textContent = esHost ? 'VOLVER A LA SALA' : 'SALIR';
+    $('sel-msg').classList.toggle('cuenta', datos.cuenta != null);
+    $('sel-msg').textContent = datos.cuenta != null ? `¡Empieza en ${datos.cuenta}!`
+      : !(yo && yo.personaje) ? 'Toca un personaje para verlo y elegirlo' : (datos.motivo || '');
+  }
+
+  // Tocar una tarjeta: si está libre, es tuya; si la tiene otro, solo la miras
+  function elegirPersonajeOnline(id, boton) {
+    if (boton.classList.contains('ocupado')) {
+      $('sel-msg').classList.remove('cuenta');
+      $('sel-msg').textContent = `${Personajes.info[id].nombre} ya lo tiene ${boton.querySelector('.quien').textContent}`;
+      return;
+    }
+    elegirEnSala({ personaje: id });
+  }
+  $('sel-listo').addEventListener('click', () => {
+    Sonido.sfx.click();
+    if (online === 'host') fiesta.listoLocal(!fiesta.local.listo);
+    else if (online === 'cliente') onlineMod.enviar({ t: 'listo', v: !onlineMod.yo.listo });
+  });
 
   // Elegir equipo, personaje y "listo" en la sala online
   function elegirEnSala(m) {
@@ -2468,6 +2555,7 @@
 
   // Llega "inicio": se arma la cancha con todos los personajes
   function clienteIniciar(msg) {
+    document.body.classList.remove('sel-online');
     combate.espejo = true;
     limpiarMunecos();
     bots.preparar({ ocupados: [], rellenar: false });

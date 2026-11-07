@@ -31,7 +31,7 @@ function pintarSala(datos, op = {}) {
         const inf = j.personaje ? Personajes.info[j.personaje] : null;
         html += `<li class="ocupado${j.listo ? ' listo' : ''}${j.num === op.yoNum ? ' yo' : ''}" style="--c:${inf ? inf.color : '#888'}">
           <span class="num">P${j.num}</span>
-          <span class="quien"><b>${escapar(j.nombre)}${j.lider ? ' 👑' : ''}${j.num === op.yoNum ? ' (tú)' : ''}</b><small>${inf ? inf.nombre : 'eligiendo…'}</small></span>
+          <span class="quien"><b>${escapar(j.nombre)}${j.lider ? ' 👑' : ''}${j.num === op.yoNum ? ' (tú)' : ''}</b><small>${inf ? inf.nombre : datos.etapa === 'conectar' ? 'conectado' : 'eligiendo…'}</small></span>
           <span class="marca">${j.listo ? '✔' : '…'}</span></li>`;
       } else {
         html += `<li class="vacio">${datos.bots ? '🤖 Bot' : 'Libre'}</li>`;
@@ -98,7 +98,9 @@ function crearFiesta(ctx) {
   // jugadores: id de conexión → datos de la persona
   const jugadores = new Map();
   let ordenLlegada = 0;
-  const sala = { mapa: 'estacion', bots: true, tamano: 3, cuenta: null, motivo: '' }; // tamano: personas por equipo
+  // tamano: personas por equipo
+  // etapa (online): 'conectar' = entran y eligen equipo · 'personajes' = cada uno elige personaje con la vista 3D
+  const sala = { mapa: 'estacion', bots: true, tamano: 3, cuenta: null, motivo: '', etapa: 'personajes' };
   let fase = 'cerrada';        // 'cerrada' | 'sala' | 'juego' | 'fin'
   // Las esperas de la sala usan el reloj real (no se frenan si el juego va lento)
   let finCuenta = 0;           // momento en que termina la cuenta regresiva de la sala
@@ -135,6 +137,7 @@ function crearFiesta(ctx) {
     modo = nombreLocal ? 'online' : 'fiesta';
     fase = 'sala';
     sala.cuenta = null;
+    sala.etapa = modo === 'online' ? 'conectar' : 'personajes'; // el Modo Fiesta lo hace todo en una sola sala
     if (modo === 'online' && !local) {
       local = {
         id: 'local', num: 1, nombre: String(nombreLocal).slice(0, 10), dispositivo: 'local', orden: -1, esLocal: true,
@@ -209,7 +212,7 @@ function crearFiesta(ctx) {
     switch (m.t) {
       case 'elegir': elegir(j, m); break;
       case 'listo':
-        if (fase !== 'sala') break;
+        if (fase !== 'sala' || sala.etapa !== 'personajes') break;
         j.listo = !!m.v && !!j.equipo && !!j.personaje;
         cambioSala();
         break;
@@ -290,7 +293,7 @@ function crearFiesta(ctx) {
   // El anfitrión online elige desde su pantalla
   function elegirLocal(m) { if (local) elegir(local, m); }
   function listoLocal(v) {
-    if (!local || fase !== 'sala') return;
+    if (!local || fase !== 'sala' || sala.etapa !== 'personajes') return;
     local.listo = !!v && !!local.equipo && !!local.personaje;
     cambioSala();
   }
@@ -319,8 +322,11 @@ function crearFiesta(ctx) {
   function revisar(exigirListos) {
     const js = conectados();
     if (!js.length) return 'Esperando jugadores…';
-    const sinElegir = js.filter((j) => !j.equipo || !j.personaje);
-    if (sinElegir.length) return `${sinElegir.map((j) => j.nombre).join(', ')}: falta elegir equipo o personaje`;
+    const sinEquipo = js.filter((j) => !j.equipo);
+    if (sinEquipo.length) return `${sinEquipo.map((j) => j.nombre).join(', ')}: falta elegir equipo`;
+    const enConectar = sala.etapa === 'conectar';
+    const sinElegir = enConectar ? [] : js.filter((j) => !j.personaje);
+    if (sinElegir.length) return `${sinElegir.map((j) => j.nombre).join(', ')}: falta elegir personaje`;
     // Si bajaron el tamaño, puede haber un equipo con más personas de las que caben
     for (const eq of ['azul', 'rojo']) {
       if (js.filter((j) => j.equipo === eq).length > sala.tamano) return `El equipo ${eq} tiene más de ${sala.tamano}: alguien debe cambiarse`;
@@ -329,6 +335,7 @@ function crearFiesta(ctx) {
       const az = js.some((j) => j.equipo === 'azul'), ro = js.some((j) => j.equipo === 'rojo');
       if (!az || !ro) return 'Sin bots, cada equipo necesita al menos una persona';
     }
+    if (enConectar) return '';
     if (exigirListos) {
       const faltan = js.filter((j) => !j.listo);
       if (faltan.length) return `Esperando a: ${faltan.map((j) => j.nombre).join(', ')}`;
@@ -339,8 +346,8 @@ function crearFiesta(ctx) {
   function cambioSala() {
     if (fase === 'sala') {
       const motivo = revisar(true);
-      sala.motivo = motivo;
-      if (motivo) {
+      sala.motivo = motivo || (sala.etapa === 'conectar' ? (modo === 'online' ? 'Cuando estén todos, el anfitrión pasa a elegir personajes' : '') : '');
+      if (motivo || sala.etapa === 'conectar') {
         sala.cuenta = null;
       } else if (sala.cuenta == null) {
         finCuenta = ahora() + F.cuentaInicio;
@@ -363,14 +370,16 @@ function crearFiesta(ctx) {
       jugadores: lista().filter((j) => j.conectado).map((j) => ({
         num: j.num, nombre: j.nombre, equipo: j.equipo, personaje: j.personaje, listo: j.listo, lider: j === l
       })),
-      mapa: sala.mapa, bots: sala.bots, tamano: sala.tamano, cuenta: sala.cuenta,
+      mapa: sala.mapa, bots: sala.bots, tamano: sala.tamano, cuenta: sala.cuenta, etapa: sala.etapa,
       motivo: fase === 'juego' ? 'Hay un partido en curso. Entras en el próximo.' : sala.motivo
     };
   }
 
   // Dibuja la sala en la pantalla (la de la TV o la del anfitrión online)
   function dibujarSala() {
-    pintarSala(datosSala(), { yoNum: local ? local.num : 0, puedeEmpezar: !revisar(false) });
+    const op = { yoNum: local ? local.num : 0, puedeEmpezar: !revisar(false) };
+    if (modo === 'online' && ctx.alSalaOnline) ctx.alSalaOnline(datosSala(), op);
+    else pintarSala(datosSala(), op);
   }
 
   const escapar = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -385,7 +394,24 @@ function crearFiesta(ctx) {
   // ==========================================================
   // 5. EMPEZAR Y TERMINAR EL PARTIDO
   // ==========================================================
+  // Online: el anfitrión pasa de "conectarse" a "elegir personajes" (y puede volver)
+  function irAPersonajes() {
+    if (fase !== 'sala' || sala.etapa !== 'conectar' || revisar(false)) return;
+    sala.etapa = 'personajes';
+    jugadores.forEach((j) => { j.listo = false; });
+    Sonido.sfx.elegir();
+    cambioSala();
+  }
+  function volverAEquipos() {
+    if (fase !== 'sala' || modo !== 'online') return;
+    sala.etapa = 'conectar';
+    sala.cuenta = null;
+    jugadores.forEach((j) => { j.listo = false; });
+    cambioSala();
+  }
+
   function empezar() {
+    if (fase === 'sala' && sala.etapa === 'conectar') { irAPersonajes(); return; }
     if (fase !== 'sala' || revisar(false)) return;
     const js = conectados().filter((j) => j.equipo && j.personaje);
     // Los que no estaban listos igual juegan (la pantalla dio la orden)
@@ -434,6 +460,7 @@ function crearFiesta(ctx) {
     jugadores.forEach((j) => { j.listo = false; j.ent = null; });
     fase = 'sala';
     sala.cuenta = null;
+    if (modo === 'online') sala.etapa = 'conectar';
     Red.enviarATodos({ t: 'fase', f: 'sala' });
     ctx.mostrarSala();
     cambioSala();
@@ -1017,7 +1044,7 @@ function crearFiesta(ctx) {
   window.__fiesta = { get balon() { return balon; }, get jugadores() { return lista(); }, get fase() { return fase; }, get humanos() { return humanos; }, sala };
 
   return {
-    abrir, cerrar, empezar, alTerminar, volverASala, colocar, actualizar, cambiarAjuste, elegirLocal, listoLocal, datosSala,
+    abrir, cerrar, empezar, irAPersonajes, volverAEquipos, alTerminar, volverASala, colocar, actualizar, cambiarAjuste, elegirLocal, listoLocal, datosSala,
     get modo() { return modo; },
     get local() { return local; },
     get fase() { return fase; },

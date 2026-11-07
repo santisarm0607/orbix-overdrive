@@ -170,7 +170,7 @@ function crearOnline(ctx) {
       case 'sala': {
         const mio = (m.jugadores || []).find((j) => j.num === yo.num);
         if (mio) { yo.lider = mio.lider; yo.listo = mio.listo; }
-        if (ctx.enSala()) pintarSala(m, { yoNum: yo.num, puedeEmpezar: false });
+        ctx.alSala(m, yo.num);
         break;
       }
       case 'fase':

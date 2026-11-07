@@ -470,6 +470,22 @@ Idea de SantiSarm: poder escoger con cuántos bots jugar. Se eligió por **tama�
 
 ---
 
+## v1.3.3 — QR también para los que se unen (7 nov 2026)
+- En la sala online, el que se une ahora también ve el código QR (antes solo el anfitrión). Así cualquiera en la sala puede invitar a más amigos: el QR abre el juego con el código ya puesto.
+- El botón EMPEZAR YA sigue siendo solo del anfitrión.
+
+---
+
+## v1.4 — Online por etapas: primero conectarse, luego personajes con vista 3D (7 nov 2026)
+Idea de SantiSarm: que primero se conecten todos y después se elijan los personajes, para poder verlos antes.
+1. **Sala (conectarse):** QR, código, equipos, mapa, bots y tamaño. Aquí solo se elige el equipo. El anfitrión toca **ELEGIR PERSONAJES →** cuando estén todos.
+2. **Personajes:** todos pasan a la pantalla de personajes con la **vista 3D** (la misma del modo Solo). Tocar un personaje lo muestra y, si está libre, lo elige. Los que ya tiene otro se ven apagados con su nombre (se pueden ver, no elegir). Abajo se ve qué eligió cada uno y quién está listo.
+   - Cuando todos tocan **¡LISTO!**, empieza en 5 s. El anfitrión también tiene **EMPEZAR YA** y **VOLVER A LA SALA** (por si falta alguien o hay que cambiar equipos).
+3. Al terminar el partido vuelven a la sala (etapa de conectarse).
+- El **Modo Fiesta** sigue igual (todo en una sala), porque el celular no muestra 3D.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -495,4 +511,5 @@ Idea de SantiSarm: poder escoger con cuántos bots jugar. Se eligió por **tama�
 - [x] **v1.1** — Menú más simple: JUGAR → modo → personaje → mapa.
 - [x] **v1.2** — Control del celular funcionando en iPhone.
 - [x] **v1.3** — Tamaño del partido: 1 vs 1, 2 vs 2 o 3 vs 3.
+- [x] **v1.4** — Online por etapas: conectarse y luego elegir personajes con vista 3D.
 - [ ] **Futuro** — Rival League (ranking), servidor TURN para redes difíciles.
