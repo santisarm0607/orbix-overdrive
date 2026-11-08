@@ -486,6 +486,17 @@ Idea de SantiSarm: que primero se conecten todos y después se elijan los person
 
 ---
 
+## v1.5 — Seis mejoras (8 nov 2026)
+1. **Tutorial:** la primera vez que juegas Solo salen 5 pasos (moverse, recoger, lanzar, golpear, súper). Se puede saltar y repetir desde *Controles → VER TUTORIAL*.
+2. **Game feel (solo):** cámara lenta en la canasta que gana el partido y en las tuyas, el juego se congela un instante cuando golpeas (más si eliminas) y golpes con mejor sonido.
+3. **Ranking de la sala (Rival League):** después de cada partido la sala muestra victorias, puntos y partidos de cada uno. Además tus estadísticas online se guardan en tu dispositivo (se ven en *Logros*).
+4. **Emotes:** 👍 😂 😡 🔥 con las teclas 1 a 4 (o el botón 😀 en el celular). Se ven sobre tu personaje en todas las pantallas.
+5. **Mapa nuevo: Cinturón de Asteroides ☄️.** Caen meteoritos: primero sale un círculo rojo y a los 1,6 s cae y hace daño a todos los que estén dentro. En el online los manda el anfitrión, así caen igual para todos.
+6. **Skins:** Neón (gana un partido), Dorada (gana 3 partidos) y Galaxia (juega en todos los mapas). Se eligen debajo del personaje y en el online los demás la ven.
+- Se arregló una línea repetida en *Controles*.
+
+---
+
 ## Plan de versiones
 - [x] **v0.1** — Cancha, movimiento, balón, tiro de 2 y 3, marcador y tiempo.
 - [x] **v0.1.1** — Controles táctiles (adelantados).
@@ -512,4 +523,5 @@ Idea de SantiSarm: que primero se conecten todos y después se elijan los person
 - [x] **v1.2** — Control del celular funcionando en iPhone.
 - [x] **v1.3** — Tamaño del partido: 1 vs 1, 2 vs 2 o 3 vs 3.
 - [x] **v1.4** — Online por etapas: conectarse y luego elegir personajes con vista 3D.
-- [ ] **Futuro** — Rival League (ranking), servidor TURN para redes difíciles.
+- [x] **v1.5** — Tutorial, cámara lenta, ranking de la sala, emotes, mapa de meteoritos y skins.
+- [ ] **Futuro** — Ranking mundial (necesita un servidor) (ranking), servidor TURN para redes difíciles.

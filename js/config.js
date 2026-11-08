@@ -6,7 +6,7 @@
    ========================================================== */
 
 const CONFIG = {
-  version: 'v1.4',
+  version: 'v1.5',
 
   // ---------- Partido ----------
   partido: {
@@ -55,7 +55,7 @@ const CONFIG = {
   // Cada mapa cambia los obstáculos, los colores y una regla especial.
   // Todos son simétricos (izquierda = derecha reflejada) para que sea justo.
   mapas: {
-    orden: ['estacion', 'luna', 'hielo', 'volcan'],
+    orden: ['estacion', 'luna', 'hielo', 'volcan', 'asteroides'],
 
     estacion: {
       nombre: 'Estación Orbital', icono: '🛰️',
@@ -130,8 +130,30 @@ const CONFIG = {
         { x: -10.4, z: 0, w: 1.4, d: 2.2 },
         { x: 10.4, z: 0, w: 1.4, d: 2.2 }
       ]
+    },
+
+    asteroides: {
+      nombre: 'Cinturón de Asteroides', icono: '☄️',
+      efecto: 'Caen meteoritos: si ves un círculo rojo, ¡aléjate!',
+      gravedad: 18, aceleracion: 1, dañoLava: 0,
+      colores: { izq: '#2a1f5c', centro: '#2b1838', der: '#5c2430', base: 0x150f24, muro: 0x4a2f6e, neon: 0xffa04a, fondo: 0x08040e, decoracion: 'crateres' },
+      planeta: { color: 0xe4793f, brillo: 0x66260f, anillo: 0xffcf8a },
+      obstaculos: [
+        { tipo: 'roca', x: -5, z: 0, w: 1.4, d: 1.4, h: 1.2 },
+        { tipo: 'roca', x: 5, z: 0, w: 1.4, d: 1.4, h: 1.2 },
+        { tipo: 'roca', x: 0, z: -5.8, w: 2, d: 1.2, h: 1.1 },
+        { tipo: 'roca', x: 0, z: 5.8, w: 2, d: 1.2, h: 1.1 },
+        { tipo: 'roca', x: -9, z: -6, w: 1.2, d: 1.2, h: 1 },
+        { tipo: 'roca', x: 9, z: 6, w: 1.2, d: 1.2, h: 1 }
+      ],
+      lava: [],
+      // Lluvia de meteoritos: cada cuántos segundos (más o menos), aviso antes de caer, tamaño y daño
+      meteoros: { cada: 6, aviso: 1.6, radio: 2.2, daño: 1100 }
     }
   },
+
+  // Emotes del online (teclas 1 a 4)
+  emotes: ['👍', '😂', '😡', '🔥'],
 
   // ---------- Jugador ----------
   jugador: {

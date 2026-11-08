@@ -80,4 +80,4 @@ NOTAS.md          historial de versiones y decisiones
 ## Tecnologías
 HTML, CSS y JavaScript sin frameworks · Three.js r128 (CDN) · PeerJS (WebRTC) · qrcode.js · Web Audio API · localStorage
 
-Versión actual: **v1.4** — más detalles en [NOTAS.md](NOTAS.md).
+Versión actual: **v1.5** — más detalles en [NOTAS.md](NOTAS.md).

@@ -137,11 +137,27 @@ const Sonido = (() => {
       }
     },
     golpe() {
-      ruido(ahora(), 0.15, 0.3, 300, 'lowpass');
-      tono(90, ahora(), 0.15, 'sine', 0.35, sfxGain, 50);
+      const t = ahora();
+      ruido(t, 0.12, 0.32, 1800, 'bandpass');
+      tono(140, t, 0.16, 'sine', 0.42, sfxGain, 45);
+      tono(70, t, 0.22, 'triangle', 0.22, sfxGain, 40);
     },
+    // Cuando TU ataque le pega a alguien: un "chasquido" con golpe grave
     impacto() {
-      tono(600, ahora(), 0.06, 'square', 0.05, sfxGain, 300);
+      const t = ahora();
+      ruido(t, 0.05, 0.22, 3200, 'highpass');
+      tono(220, t, 0.08, 'square', 0.06, sfxGain, 110);
+      tono(95, t, 0.1, 'sine', 0.28, sfxGain, 55);
+    },
+    alarma() {
+      const t = ahora();
+      tono(880, t, 0.09, 'square', 0.05);
+      tono(660, t + 0.12, 0.09, 'square', 0.05);
+    },
+    emote() {
+      const t = ahora();
+      tono(988, t, 0.06, 'sine', 0.1);
+      tono(1318, t + 0.05, 0.08, 'sine', 0.1);
     },
     dañoRecibido() {
       tono(180, ahora(), 0.15, 'sawtooth', 0.12, sfxGain, 90);

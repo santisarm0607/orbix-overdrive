@@ -361,7 +361,39 @@ const Personajes = (() => {
   const constructores = { nova, kraag, zip, orbit, lumen, meteor };
 
   // Crea el modelo completo de un personaje con el color de su equipo
-  function crearModelo(id, colorEquipo) {
+  // ---------- Skins: colores alternativos que se desbloquean con logros ----------
+  const skins = [
+    { id: 'normal', nombre: 'Normal' },
+    { id: 'neon', nombre: 'Neón', logro: 'victoria' },
+    { id: 'dorada', nombre: 'Dorada', logro: 'tresVictorias' },
+    { id: 'galaxia', nombre: 'Galaxia', logro: 'turista' }
+  ];
+  function aplicarSkin(raiz, skin, colorEquipo, aro) {
+    if (!skin || skin === 'normal') return;
+    const equipo = new THREE.Color(colorEquipo).getHex();
+    raiz.traverse((o) => {
+      if (!o.isMesh || o === aro || !o.material || !o.material.color) return;
+      const col = o.material.color;
+      if (col.getHex() === equipo) return; // lo del color del equipo no cambia (así se sabe de qué equipo es)
+      const luz = col.r * 0.3 + col.g * 0.59 + col.b * 0.11;
+      if (luz > 0.88 || luz < 0.05) return; // ojos blancos o negros, igual
+      const m = o.material.clone();
+      o.material = m;
+      if (skin === 'neon') {
+        m.color.multiplyScalar(1.25);
+        if (m.emissive) m.emissive.copy(m.color).multiplyScalar(0.55);
+      } else if (skin === 'dorada') {
+        m.color.lerp(new THREE.Color(0xffc83d), 0.7);
+        if (m.emissive) m.emissive.setHex(0x3a2400);
+        if ('metalness' in m) { m.metalness = 0.85; m.roughness = 0.28; }
+      } else if (skin === 'galaxia') {
+        m.color.lerp(new THREE.Color(0x3b1c86), 0.65);
+        if (m.emissive) m.emissive.setHex(0x5a2ab0).multiplyScalar(0.45);
+      }
+    });
+  }
+
+  function crearModelo(id, colorEquipo, skin = 'normal') {
     const raiz = new THREE.Group();
 
     // Aro de equipo en el piso
@@ -382,6 +414,7 @@ const Personajes = (() => {
 
     const c = { raiz, cuerpo, animar: null, pose: null };
     const extra = constructores[id](c, colorEquipo);
+    aplicarSkin(raiz, skin, colorEquipo, aro);
 
     // Guardamos los materiales para poder hacer "parpadear" al personaje cuando recibe daño
     const materiales = [];
@@ -435,5 +468,5 @@ const Personajes = (() => {
     }
   }
 
-  return { lista, info, crearModelo, animar, actualizarAnim };
+  return { skins, lista, info, crearModelo, animar, actualizarAnim };
 })();

@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%80%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1.4">
+  <link rel="stylesheet" href="css/style.css?v=1.5">
 </head>
 <body>
 
@@ -20,6 +20,12 @@
 
   <!-- ===================== HUD (durante el partido) ===================== -->
   <div id="hud">
+    <!-- Tutorial (primera partida) -->
+    <div id="tutorial" class="tutorial" hidden>
+      <span id="tut-paso"></span>
+      <b id="tut-texto"></b>
+      <button id="tut-saltar">Saltar</button>
+    </div>
     <div id="marcador">
       <div class="equipo azul"><span class="nombre">AZUL</span><span id="marcador-azul">0</span></div>
       <div id="centro-marcador">
@@ -60,6 +66,8 @@
       <div id="stick-mover" class="stick"><div id="perilla-mover" class="perilla"></div></div>
     </div>
     <button id="btn-pausa" class="btn-tactil" aria-label="Pausa">II</button>
+    <button id="btn-emote" class="btn-tactil" aria-label="Emotes">😀</button>
+    <div id="menu-emotes" class="menu-emotes"></div>
     <button id="btn-pantalla" class="btn-tactil btn-pantalla-completa" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <div id="grupo-derecho">
       <button id="btn-super" class="btn-tactil" aria-label="Súper">SÚPER</button>
@@ -157,6 +165,10 @@
           <p class="fiesta-codigo-txt">Código <b id="fiesta-codigo">····</b></p>
           <p id="fiesta-url" class="fiesta-url"></p>
           <p id="fiesta-estado" class="fiesta-estado"></p>
+          <div id="sala-ranking" class="sala-ranking" hidden>
+            <h4>🏆 Ranking de la sala</h4>
+            <ol id="sala-ranking-lista"></ol>
+          </div>
         </div>
         <div class="fiesta-equipos">
           <div class="fiesta-equipo azul"><h3>AZUL</h3><ul id="fiesta-azul"></ul></div>
@@ -208,6 +220,8 @@
             <p id="pj-desc" class="desc"></p>
             <p class="super-pj"><b id="pj-super-nombre"></b> <span id="pj-super-desc"></span></p>
             <ul id="pj-stats" class="stats"></ul>
+            <div id="pj-skins" class="pj-skins"></div>
+            <p id="pj-skin-msg" class="pj-skin-msg"></p>
           </div>
         </div>
       </div>
@@ -278,13 +292,13 @@
             <li><kbd>W A S D</kbd><span>Moverse</span></li>
             <li><kbd>Mouse</kbd><span>Apuntar</span></li>
             <li><kbd>Clic izq</kbd><span>Atacar / con balón: lanzar</span></li>
-        <li><kbd>Clic der</kbd><span>Robar / con balón: pasar</span></li>
             <li><kbd>Clic der</kbd><span>Robar (de frente y cerca) / con balón: pasar al compañero hacia donde apuntas</span></li>
             <li><kbd>Espacio</kbd><span>Impulso (luego esperas 5 s)</span></li>
             <li><kbd>R</kbd><span>Súper: mantén para apuntar, suelta para usarla</span></li>
             <li><kbd>Esc / P</kbd><span>Pausa</span></li>
             <li><kbd>M</kbd><span>Música sí / no</span></li>
             <li><kbd>F</kbd><span>Pantalla completa</span></li>
+            <li><kbd>1 2 3 4</kbd><span>Emotes 👍 😂 😡 🔥</span></li>
           </ul>
         </div>
         <div>
@@ -294,6 +308,7 @@
             <li><kbd>Stick ataque</kbd><span>Arrastra hacia donde quieres tirar (más lejos = tiro más largo) y suelta</span></li>
             <li><kbd>Volver al centro</kbd><span>Cancela el tiro</span></li>
             <li><kbd>Sin balón</kbd><span>El stick ataca; un toque rápido ataca al rival más cercano</span></li>
+            <li><kbd>😀</kbd><span>Emotes</span></li>
             <li><kbd>Pase/Robo</kbd><span>Pasar / robar</span></li>
             <li><kbd>Impulso</kbd><span>Esquivar (luego esperas 5 s)</span></li>
             <li><kbd>Súper</kbd><span>Arrastra para apuntar y suelta (toque = al más cercano)</span></li>
@@ -306,7 +321,10 @@
         Solo ves la primera mitad del arco: <b class="dorado">dorado</b> = triple, <b>blanco</b> = doble,
         <b class="gris">gris</b> = no vas al aro. Tirar quieto y de cerca es más preciso.
       </div>
-      <button data-accion="volver">VOLVER</button>
+      <div class="botones fila">
+        <button data-accion="repetir-tutorial">VER TUTORIAL</button>
+        <button data-accion="volver">VOLVER</button>
+      </div>
     </div>
   </div>
 
@@ -317,6 +335,7 @@
       <p id="contador-logros" class="contador-logros"></p>
       <ul id="lista-logros"></ul>
       <p class="mejor">Mejor puntaje en un partido: <b id="mejor-puntaje">0</b></p>
+      <p id="stats-online" class="mejor"></p>
       <button data-accion="volver">VOLVER</button>
     </div>
   </div>
@@ -383,19 +402,19 @@
   <!-- Three.js desde CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <!-- Código del juego (el orden importa) -->
-  <script src="js/config.js?v=1.4"></script>
-  <script src="js/audio.js?v=1.4"></script>
-  <script src="js/arena.js?v=1.4"></script>
-  <script src="js/personajes.js?v=1.4"></script>
-  <script src="js/combate.js?v=1.4"></script>
-  <script src="js/bots.js?v=1.4"></script>
-  <script src="js/poderes.js?v=1.4"></script>
+  <script src="js/config.js?v=1.5"></script>
+  <script src="js/audio.js?v=1.5"></script>
+  <script src="js/arena.js?v=1.5"></script>
+  <script src="js/personajes.js?v=1.5"></script>
+  <script src="js/combate.js?v=1.5"></script>
+  <script src="js/bots.js?v=1.5"></script>
+  <script src="js/poderes.js?v=1.5"></script>
   <!-- Modo Fiesta: conexión con los celulares (PeerJS) y código QR -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/red.js?v=1.4"></script>
-  <script src="js/fiesta.js?v=1.4"></script>
-  <script src="js/online.js?v=1.4"></script>
-  <script src="js/game.js?v=1.4"></script>
+  <script src="js/red.js?v=1.5"></script>
+  <script src="js/fiesta.js?v=1.5"></script>
+  <script src="js/online.js?v=1.5"></script>
+  <script src="js/game.js?v=1.5"></script>
 </body>
 </html>

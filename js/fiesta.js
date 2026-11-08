@@ -57,6 +57,11 @@ function pintarSala(datos, op = {}) {
   $('fiesta-msg').textContent = msg;
   $('fiesta-msg').classList.toggle('cuenta', datos.cuenta != null);
   $('fiesta-empezar').disabled = !op.puedeEmpezar;
+  // Ranking de la sala (aparece después del primer partido)
+  const rk = datos.ranking || [];
+  $('sala-ranking').hidden = !rk.length;
+  $('sala-ranking-lista').innerHTML = rk.map((r, i) =>
+    `<li><span>${['🥇', '🥈', '🥉'][i] || i + 1 + '.'}</span><b>${escapar(r.nombre)}</b><small>${r.victorias} V · ${r.puntos} pts · ${r.partidos} PJ</small></li>`).join('');
   // Panel "tu elección" (solo online: tú también juegas)
   const panel = $('sala-yo');
   panel.hidden = !op.yoNum;
@@ -97,6 +102,8 @@ function crearFiesta(ctx) {
   // ==========================================================
   // jugadores: id de conexión → datos de la persona
   const jugadores = new Map();
+  // Ranking de la sala (Rival League): se suma partido a partido mientras la sala siga abierta
+  const ranking = new Map(); // dispositivo → { nombre, partidos, victorias, puntos, elims }
   let ordenLlegada = 0;
   // tamano: personas por equipo
   // etapa (online): 'conectar' = entran y eligen equipo · 'personajes' = cada uno elige personaje con la vista 3D
@@ -194,6 +201,7 @@ function crearFiesta(ctx) {
     Red.enviarATodos({ t: 'cerrada' }); // avisa a todos que la sala se cerró
     quitarHumanos();
     jugadores.clear();
+    ranking.clear();
     local = null;
     Red.cerrar();
     fase = 'cerrada';
@@ -236,6 +244,14 @@ function crearFiesta(ctx) {
       case 'accion':
         if (j.ent) accion(j, m);
         break;
+      case 'emote': {
+        const k = +m.k;
+        if (!j.ent || !(k >= 0 && k < CONFIG.emotes.length)) break;
+        if (performance.now() - (j.tEmote || 0) < 1400) break;
+        j.tEmote = performance.now();
+        if (ctx.alEmote) ctx.alEmote(j.ent, k);
+        break;
+      }
     }
   });
 
@@ -305,6 +321,7 @@ function crearFiesta(ctx) {
       if (!llenos) j.equipo = m.equipo;
       j.listo = false;
     }
+    if (typeof m.skin === 'string' && Personajes.skins.some((s) => s.id === m.skin)) j.skin = m.skin;
     if (m.personaje && CONFIG.personajes[m.personaje]) {
       const tomado = lista().some((x) => x !== j && x.personaje === m.personaje);
       if (!tomado) j.personaje = m.personaje;
@@ -368,9 +385,10 @@ function crearFiesta(ctx) {
     const l = lider();
     return {
       jugadores: lista().filter((j) => j.conectado).map((j) => ({
-        num: j.num, nombre: j.nombre, equipo: j.equipo, personaje: j.personaje, listo: j.listo, lider: j === l
+        num: j.num, nombre: j.nombre, equipo: j.equipo, personaje: j.personaje, skin: j.skin || 'normal', listo: j.listo, lider: j === l
       })),
       mapa: sala.mapa, bots: sala.bots, tamano: sala.tamano, cuenta: sala.cuenta, etapa: sala.etapa,
+      ranking: [...ranking.values()].sort((a, b) => b.victorias - a.victorias || b.puntos - a.puntos).slice(0, 6),
       motivo: fase === 'juego' ? 'Hay un partido en curso. Entras en el próximo.' : sala.motivo
     };
   }
@@ -449,6 +467,16 @@ function crearFiesta(ctx) {
       .filter((e) => e.jugadorFiesta)
       .map((e) => ({ num: e.jugadorFiesta.num, nombre: e.jugadorFiesta.nombre, equipo: e.equipo, personaje: e.personaje, puntos: e.puntos || 0, elims: e.eliminaciones || 0 }))
       .sort((a, b) => b.puntos - a.puntos || b.elims - a.elims);
+    combate.entidades.filter((e) => e.jugadorFiesta).forEach((e) => {
+      const j = e.jugadorFiesta;
+      const r = ranking.get(j.dispositivo) || { nombre: j.nombre, partidos: 0, victorias: 0, puntos: 0, elims: 0 };
+      r.nombre = j.nombre;
+      r.partidos++;
+      if (e.equipo === ganador) r.victorias++;
+      r.puntos += e.puntos || 0;
+      r.elims += e.eliminaciones || 0;
+      ranking.set(j.dispositivo, r);
+    });
     Red.enviarATodos({ t: 'fin', ganador, az: p.marcador.azul, ro: p.marcador.rojo, tabla });
     return tabla;
   }
@@ -481,7 +509,8 @@ function crearFiesta(ctx) {
       jugadorFiesta: j,
       personaje: j.personaje,
       equipo: j.equipo,
-      malla: Personajes.crearModelo(j.personaje, j.equipo === 'azul' ? COL.azul : COL.rojo),
+      malla: Personajes.crearModelo(j.personaje, j.equipo === 'azul' ? COL.azul : COL.rojo, j.skin || 'normal'),
+      skin: j.skin || 'normal',
       pos: new THREE.Vector3(aparicion.x, 0, aparicion.z),
       vel: new THREE.Vector3(),
       dir: new THREE.Vector3(j.equipo === 'azul' ? 1 : -1, 0, 0),

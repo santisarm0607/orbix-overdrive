@@ -61,7 +61,7 @@ function crearCombate(ctx) {
     // Barra de vida (HTML) que flota sobre la cabeza
     const barra = document.createElement('div');
     barra.className = `barra-ent ${ent.equipo}${ent.esJugador ? ' jugador' : ''}${ent.esRemoto ? ' humano' : ''}`;
-    barra.innerHTML = `<span class="nombre">${ent.nombre}</span><div class="vida"><i></i></div><span class="num"></span>`;
+    barra.innerHTML = `<span class="emote"></span><span class="nombre">${ent.nombre}</span><div class="vida"><i></i></div><span class="num"></span>`;
     capaBarras.appendChild(barra);
     ent.barra = barra;
     ent.barraRelleno = barra.querySelector('i');
@@ -161,6 +161,7 @@ function crearCombate(ctx) {
     lanzarParticulas(objetivo.pos.x, 1, objetivo.pos.z, 0xffffff, 6, 4, 9, 0.4);
     if (objetivo.esJugador) Sonido.sfx.dañoRecibido();
     else if (atacante && atacante.esJugador) Sonido.sfx.impacto();
+    if (ctx.alDañar) ctx.alDañar(objetivo, cantidad, atacante, objetivo.vida <= 0);
     if (objetivo.vida <= 0) eliminar(objetivo, atacante, esSuper);
   }
 

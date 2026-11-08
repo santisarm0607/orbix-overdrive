@@ -49,6 +49,7 @@
   const hemi = scene.children.find((o) => o.isHemisphereLight);
 
   function cambiarMapa(id) {
+    if (meteoros) limpiarMeteoros();
     mapa = CONFIG.mapas[id];
     CONFIG.mapaActual = mapa;
     // Los obstáculos se cambian "en el mismo arreglo" para que todo el juego los vea
@@ -275,6 +276,13 @@
     alReaparecer: alReaparecerEntidad,
     sacudir: sacudirCamara,
     alUsarSuper: alUsarSuperEntidad,
+    // Cuando TÚ golpeas: un instante congelado (más fuerte si eliminas) y para el tutorial
+    alDañar: (obj, cant, atk, eliminado) => {
+      if (atk !== jugador) return;
+      golpeSeco(eliminado ? 0.09 : 0.03);
+      if (eliminado) { ralentizar(0.35, 0.4); sacudirCamara(0.35); }
+      tut.golpes++;
+    },
     // Online: cada ataque, súper o impacto se manda a los demás
     alAccion: (tipo, ent, x, z, extra) => emitir({ e: tipo, i: ent.netId, x: r2(x), z: r2(z), s: extra })
   });
@@ -325,7 +333,8 @@
     const s = CONFIG.personajes[id];
     jugador.vidaMax = jugador.vida = s.vida;
     jugador.nombre = Personajes.info[id].nombre; // antes se quedaba siempre en Nova
-    combate.cambiarMalla(jugador, Personajes.crearModelo(id, COL[jugador.equipo]));
+    jugador.skin = skinDe(id);
+    combate.cambiarMalla(jugador, Personajes.crearModelo(id, COL[jugador.equipo], jugador.skin));
     jugador.barra.querySelector('.nombre').textContent = Personajes.info[id].nombre;
     prepararIndicador(s.ataque);
     progreso.ultimoPersonaje = id;
@@ -371,7 +380,7 @@
     aroRival = aros.find((a) => a.equipo !== equipo);
     jugador.barra.classList.toggle('azul', equipo === 'azul');
     jugador.barra.classList.toggle('rojo', equipo === 'rojo');
-    if (cambio) combate.cambiarMalla(jugador, Personajes.crearModelo(jugador.personaje, COL[equipo]));
+    if (cambio) combate.cambiarMalla(jugador, Personajes.crearModelo(jugador.personaje, COL[equipo], jugador.skin));
   }
 
   // ==========================================================
@@ -406,7 +415,7 @@
     { id: 'super',    nombre: 'Poder estelar',          desc: 'Usa tu súper habilidad.' },
     { id: 'poder',    nombre: 'Energizado',             desc: 'Recoge un poder de la cancha.' },
     { id: 'fuego',    nombre: 'Canasta en llamas',      desc: 'Anota con el Balón de fuego.' },
-    { id: 'turista',  nombre: 'Turista galáctico',      desc: 'Juega en los 4 mapas.' },
+    { id: 'turista',  nombre: 'Turista galáctico',      desc: 'Juega en todos los mapas.' },
     { id: 'tresVictorias', nombre: 'Leyenda de la arena', desc: 'Gana 3 partidos.' },
     { id: 'invicto',  nombre: 'Muralla galáctica',      desc: 'Gana un partido sin que el rival anote.' },
     { id: 'remontada', nombre: 'Remontada épica',       desc: 'Gana un partido en el que ibas perdiendo por 4 o más.' },
@@ -425,6 +434,16 @@
   }
   const progreso = cargarProgreso();
   if (!progreso.logros) progreso.logros = {};
+
+  // Skin elegida para un personaje (solo si está desbloqueada)
+  function skinDesbloqueada(skin) {
+    const s = Personajes.skins.find((x) => x.id === skin);
+    return !!s && (!s.logro || !!progreso.logros[s.logro]);
+  }
+  function skinDe(id) {
+    const s = (progreso.skins || {})[id] || 'normal';
+    return skinDesbloqueada(s) ? s : 'normal';
+  }
 
   function guardarProgreso() {
     try { localStorage.setItem(CLAVE_GUARDADO, JSON.stringify(progreso)); } catch (e) { /* sin guardado */ }
@@ -462,6 +481,9 @@
       else mostrarPista(`Súper cargada al ${Math.floor(jugador.carga * 100)} %`);
     }
     if (e.code === 'KeyF') alternarPantallaCompleta();
+    // Emotes: teclas 1 a 4
+    const n = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
+    if (n >= 0 && !e.repeat) enviarEmote(n);
   });
   window.addEventListener('keyup', (e) => {
     teclas[e.code] = false;
@@ -480,6 +502,7 @@
       return;
     }
     if (!combate.usarSuper(jugador, tx, tz)) Sonido.sfx.error();
+    else tut.super = true;
   }
 
   // Mouse (solo cuenta si de verdad es un mouse, no un dedo)
@@ -1268,6 +1291,10 @@
     if (conFuego) lanzarParticulas(aro.x, aro.y, aro.z, 0xff7a1a, 40, 8);
     actualizarHUD();
 
+    // Cámara lenta: larga en la canasta que gana el partido, corta en las tuyas
+    if (partido.marcador[equipoQueAnota] >= CONFIG.partido.puntosParaGanar || partido.prorroga) ralentizar(1.4, 0.25);
+    else if (balon.tiroDe === jugador) ralentizar(0.45, 0.45);
+
     // Límite de puntos: el primero en llegar gana
     if (partido.marcador[equipoQueAnota] >= CONFIG.partido.puntosParaGanar) {
       finPartido();
@@ -1731,6 +1758,10 @@
     $('mejor-puntaje').textContent = progreso.mejorPuntaje || 0;
     const conseguidos = LOGROS.filter((l) => progreso.logros[l.id]).length;
     $('contador-logros').textContent = `${conseguidos} de ${LOGROS.length} conseguidos`;
+    const o = progreso.online;
+    $('stats-online').textContent = o && o.partidos
+      ? `🌐 Online: ${o.partidos} partidos · ${o.victorias} victorias · ${o.puntos} puntos · ${o.elims} eliminaciones`
+      : '🌐 Online: todavía no has jugado';
   }
 
   // ==========================================================
@@ -1771,6 +1802,7 @@
       return;
     }
     elTactil.classList.add('visible');
+    if (!progreso.tutorial) empezarTutorial(); else { tut.activo = false; $('tutorial').hidden = true; }
     const companeros = bots.lista.filter((b) => b.equipo === 'azul').map((b) => b.nombre).join(' y ');
     const tam = progreso.tamano || 3;
     partido.infoInicio = `${tam} vs ${tam} · ${companeros ? `Tus compañeros: ${companeros}` : 'Sin compañeros'} · Primero a ${CONFIG.partido.puntosParaGanar}`;
@@ -1847,6 +1879,7 @@
   function finFiesta(azul, rojo) {
     const ganador = azul > rojo ? 'azul' : rojo > azul ? 'rojo' : null;
     const tabla = fiesta.alTerminar(ganador);
+    if (online === 'host' && fiesta.local) sumarOnline(tabla.find((f) => f.num === fiesta.local.num), ganador === jugador.equipo);
     $('fin-titulo').textContent = ganador ? `¡GANA EL EQUIPO ${ganador.toUpperCase()}!` : '¡EMPATE!';
     $('fin-titulo').className = ganador || '';
     $('fin-marcador').innerHTML = `<span class="azul">${azul}</span> - <span class="rojo">${rojo}</span>`;
@@ -1994,6 +2027,39 @@
     $('pj-stats').innerHTML = filas.map(([n, v, f]) =>
       `<li><span>${n}</span><div class="barra-stat"><i style="width:${Math.min(100, f * 100)}%"></i></div><b>${v}</b></li>`).join('');
     vistaPrevia.mostrar(id);
+    pintarSkins(id);
+  }
+
+  // Botones de skins debajo del personaje
+  function pintarSkins(id) {
+    const cont = $('pj-skins');
+    const actual = skinDe(id);
+    cont.innerHTML = '<span>Skin</span>' + Personajes.skins.map((s) => {
+      const ok = skinDesbloqueada(s.id);
+      return `<button class="skin${s.id === actual ? ' activa' : ''}${ok ? '' : ' bloqueada'}" data-skin="${s.id}">${ok ? '' : '🔒 '}${s.nombre}</button>`;
+    }).join('');
+    $('pj-skin-msg').textContent = '';
+    cont.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      const s = Personajes.skins.find((x) => x.id === b.dataset.skin);
+      if (!skinDesbloqueada(s.id)) {
+        const l = LOGROS.find((x) => x.id === s.logro);
+        $('pj-skin-msg').textContent = `🔒 Se desbloquea con el logro "${l.nombre}": ${l.desc}`;
+        Sonido.sfx.error();
+        return;
+      }
+      progreso.skins = progreso.skins || {};
+      progreso.skins[id] = s.id;
+      guardarProgreso();
+      Sonido.sfx.click();
+      vistaPrevia.mostrar(id, s.id);
+      pintarSkins(id);
+      // Online: la skin la ven todos (va con el personaje)
+      if (document.body.classList.contains('sel-online') && seleccionActual === id) {
+        const datos = datosSalaOnline && datosSalaOnline.datos;
+        const yo = datos && datos.jugadores.find((j) => j.num === datosSalaOnline.yoNum);
+        if (yo && yo.personaje === id) elegirEnSala({ personaje: id, skin: s.id });
+      }
+    }));
   }
 
   // Un pequeño visor 3D que muestra al personaje girando
@@ -2026,9 +2092,9 @@
         cam.aspect = w / h;
         cam.updateProjectionMatrix();
       },
-      mostrar(id) {
+      mostrar(id, skin) {
         if (modelo) esc.remove(modelo);
-        modelo = Personajes.crearModelo(id, COL.azul);
+        modelo = Personajes.crearModelo(id, COL.azul, skin || skinDe(id));
         idActual = id;
         esc.add(modelo);
         tSiguiente = 0.4; // al elegirlo, enseguida muestra su ataque
@@ -2207,6 +2273,12 @@
           else salirFiesta();
           break;
         case 'online': abrirPantallaOnline(); break;
+        case 'repetir-tutorial':
+          progreso.tutorial = false;
+          guardarProgreso();
+          document.body.classList.remove('sel-online');
+          abrirSeleccion();
+          break;
         case 'online-crear': crearSalaOnline(); break;
         case 'online-unirse': unirseOnline(); break;
         case 'confirmar-personaje': aplicarPersonaje(seleccionActual); abrirMapas(); break;
@@ -2251,6 +2323,174 @@
   pintarTamano();
 
   // ==========================================================
+  // 13d. TUTORIAL (la primera vez que juegas solo)
+  // ==========================================================
+  const PASOS_TUTORIAL = [
+    { pc: 'Muévete con W A S D', cel: 'Muévete con el stick de la izquierda', listo: () => tut.movido > 4 },
+    { pc: 'Corre hasta el balón para recogerlo', cel: 'Corre hasta el balón para recogerlo', listo: () => balon.portador === jugador },
+    { pc: 'Apunta al aro rojo con el mouse y haz clic para lanzar', cel: 'Arrastra el stick naranja hacia el aro rojo y suelta', listo: () => partido.stats.tiros > tut.tiros0 },
+    { pc: 'Sin balón, haz clic cerca de un rival para golpearlo', cel: 'Sin balón, usa el stick naranja para golpear a un rival', listo: () => tut.golpes > 0 },
+    { pc: 'Cuando tu súper se llene (golpeando), mantén R, apunta y suelta', cel: 'Cuando tu súper se llene (golpeando), arrastra el botón SÚPER', listo: () => tut.super }
+  ];
+  const tut = { activo: false, paso: 0, t: 0, movido: 0, tiros0: 0, golpes: 0, super: false, px: 0, pz: 0 };
+
+  function empezarTutorial() {
+    Object.assign(tut, { activo: true, paso: 0, t: 0, movido: 0, tiros0: 0, golpes: 0, super: false, px: jugador.pos.x, pz: jugador.pos.z });
+    mostrarPasoTutorial();
+  }
+  function mostrarPasoTutorial() {
+    const p = PASOS_TUTORIAL[tut.paso];
+    $('tutorial').hidden = false;
+    $('tut-paso').textContent = `TUTORIAL ${tut.paso + 1}/${PASOS_TUTORIAL.length}`;
+    $('tut-texto').textContent = tactil.activo ? p.cel : p.pc;
+    $('tutorial').classList.remove('bien');
+  }
+  function terminarTutorial(completo) {
+    tut.activo = false;
+    $('tutorial').hidden = true;
+    progreso.tutorial = true;
+    guardarProgreso();
+    if (completo) mostrarPista('¡Tutorial completo! Ahora a ganar: primero a 11 puntos.');
+  }
+  function actualizarTutorial(dt) {
+    if (!tut.activo || estado !== 'jugando') return;
+    tut.movido += Math.hypot(jugador.pos.x - tut.px, jugador.pos.z - tut.pz);
+    tut.px = jugador.pos.x; tut.pz = jugador.pos.z;
+    tut.t += dt;
+    if (tut.paso === 2 && tut.t < 0.1) tut.tiros0 = partido.stats.tiros;
+    // Si un paso tarda mucho (por ejemplo, la súper no se llena), se pasa solo
+    if (PASOS_TUTORIAL[tut.paso].listo() || tut.t > 45) {
+      Sonido.sfx.elegir();
+      $('tutorial').classList.add('bien');
+      tut.paso++;
+      tut.t = 0;
+      if (tut.paso >= PASOS_TUTORIAL.length) { setTimeout(() => terminarTutorial(true), 600); tut.activo = false; return; }
+      if (tut.paso === 2) tut.tiros0 = partido.stats.tiros;
+      if (tut.paso === 3) tut.golpes = 0;   // cuenta solo los golpes desde este paso
+      if (tut.paso === 4) tut.super = false;
+      setTimeout(() => { if (tut.activo) mostrarPasoTutorial(); }, 600);
+    }
+  }
+  $('tut-saltar').addEventListener('click', () => { Sonido.sfx.click(); terminarTutorial(false); });
+
+  // ==========================================================
+  // 13d-2. EMOTES (teclas 1 a 4 o el botón 😀 en el celular)
+  // ==========================================================
+  let tUltimoEmote = 0;
+  function mostrarEmote(ent, k) {
+    if (!ent || !ent.barra || !CONFIG.emotes[k]) return;
+    const el = ent.barra.querySelector('.emote');
+    el.textContent = CONFIG.emotes[k];
+    el.classList.remove('activo');
+    void el.offsetWidth;
+    el.classList.add('activo');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('activo'), 2200);
+    Sonido.sfx.emote();
+  }
+  function enviarEmote(k) {
+    if (estado !== 'jugando' && estado !== 'canasta' && estado !== 'cuenta') return;
+    const ahoraS = performance.now();
+    if (ahoraS - tUltimoEmote < 1500) return;
+    tUltimoEmote = ahoraS;
+    $('menu-emotes').classList.remove('abierto');
+    if (online === 'cliente') { onlineMod.enviar({ t: 'emote', k }); return; }
+    mostrarEmote(jugador, k);
+    emitir({ e: 'emote', i: jugador.netId, k });
+  }
+  CONFIG.emotes.forEach((em, k) => {
+    const b = document.createElement('button');
+    b.textContent = em;
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); enviarEmote(k); });
+    $('menu-emotes').appendChild(b);
+  });
+  $('btn-emote').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); $('menu-emotes').classList.toggle('abierto'); });
+
+  // ==========================================================
+  // 13d-3. LLUVIA DE METEORITOS (mapa Cinturón de Asteroides)
+  // ==========================================================
+  var meteoros = [];   // "var" porque cambiarMapa lo usa desde el inicio
+  var tMeteoro = 4;
+  function lanzarMeteoro(x, z) {
+    const M = mapa.meteoros || { radio: 2.2, aviso: 1.6 };
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(M.radio, 32), new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: 0.15, depthWrite: false }));
+    disco.rotation.x = -Math.PI / 2;
+    disco.position.set(x, 0.05, z);
+    const anillo = new THREE.Mesh(new THREE.RingGeometry(M.radio * 0.9, M.radio, 40), new THREE.MeshBasicMaterial({ color: 0xff5a3c, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+    anillo.rotation.x = -Math.PI / 2;
+    anillo.position.set(x, 0.06, z);
+    const roca = new THREE.Mesh(new THREE.DodecahedronGeometry(0.75, 0), new THREE.MeshStandardMaterial({ color: 0x6b4a3a, emissive: 0xff5a1a, emissiveIntensity: 0.9, flatShading: true }));
+    roca.visible = false;
+    scene.add(disco, anillo, roca);
+    meteoros.push({ x, z, t: 0, disco, anillo, roca, aviso: M.aviso });
+    Sonido.sfx.alarma();
+  }
+  // generar = false en el que se unió online (los manda el anfitrión)
+  function actualizarMeteoros(dt, generar) {
+    const M = mapa.meteoros;
+    if (generar && M && estado === 'jugando') {
+      tMeteoro -= dt;
+      if (tMeteoro <= 0) {
+        tMeteoro = M.cada * (0.7 + Math.random() * 0.6);
+        const x = (Math.random() * 2 - 1) * (C.mitadLargo - 3);
+        const z = (Math.random() * 2 - 1) * (C.mitadAncho - 2);
+        lanzarMeteoro(x, z);
+        emitir({ e: 'meteoro', x: r2(x), z: r2(z) });
+      }
+    }
+    const caida = 0.35;
+    for (let i = meteoros.length - 1; i >= 0; i--) {
+      const m = meteoros[i];
+      m.t += dt;
+      const k = Math.min(1, m.t / m.aviso);
+      m.disco.material.opacity = 0.12 + 0.3 * k + Math.sin(m.t * 18) * 0.08 * k;
+      m.anillo.scale.setScalar(1.15 - 0.15 * k);
+      if (m.t > m.aviso - caida) {
+        const f = Math.min(1, (m.t - (m.aviso - caida)) / caida);
+        m.roca.visible = true;
+        m.roca.position.set(m.x + (1 - f) * 4, 0.6 + 16 * (1 - f), m.z - (1 - f) * 3);
+        m.roca.rotation.x += dt * 9;
+        if (Math.random() < 0.6) lanzarParticulas(m.roca.position.x, m.roca.position.y, m.roca.position.z, 0xff9a3c, 1, 1, -2, 0.4);
+      }
+      if (m.t >= m.aviso) {
+        explotarMeteoro(m);
+        scene.remove(m.disco, m.anillo, m.roca);
+        meteoros.splice(i, 1);
+      }
+    }
+  }
+  function explotarMeteoro(m) {
+    const M = mapa.meteoros || { radio: 2.2, daño: 1000 };
+    lanzarParticulas(m.x, 0.4, m.z, 0xff7a1a, 40, 9, 9, 0.9);
+    lanzarParticulas(m.x, 0.4, m.z, 0x6b4a3a, 20, 6, 9, 0.7);
+    Sonido.sfx.explosion();
+    const dJ = Math.hypot(jugador.pos.x - m.x, jugador.pos.z - m.z);
+    sacudirCamara(dJ < 8 ? 0.5 : 0.2);
+    // Daña a todos los que estén dentro (en el online solo cuenta el del anfitrión)
+    for (const e of combate.entidades) {
+      if (e.vivo && Math.hypot(e.pos.x - m.x, e.pos.z - m.z) < M.radio + 0.3) combate.hacerDaño(e, M.daño, null);
+    }
+  }
+  function limpiarMeteoros() {
+    meteoros.forEach((m) => scene.remove(m.disco, m.anillo, m.roca));
+    meteoros.length = 0;
+    tMeteoro = 4;
+  }
+
+  // ==========================================================
+  // 13d-4. ESTADÍSTICAS ONLINE (se guardan en tu dispositivo)
+  // ==========================================================
+  function sumarOnline(fila, gano) {
+    if (!fila) return;
+    const o = progreso.online = progreso.online || { partidos: 0, victorias: 0, puntos: 0, elims: 0 };
+    o.partidos++;
+    if (gano) o.victorias++;
+    o.puntos += fila.puntos || 0;
+    o.elims += fila.elims || 0;
+    guardarProgreso();
+  }
+
+  // ==========================================================
   // 13e. MODO FIESTA (una pantalla + celulares como control)
   // ==========================================================
   const fiesta = crearFiesta({
@@ -2281,6 +2521,7 @@
     },
     pista: mostrarPista,
     alSalaOnline: (datos, op) => salaOnline(datos, op.yoNum, true, op.puedeEmpezar),
+    alEmote: (ent, k) => { mostrarEmote(ent, k); emitir({ e: 'emote', i: ent.netId, k }); },
     alEmpezar: () => { if (online === 'host') onlineMod.alEmpezar(); },
     alReconectar: (id) => { if (online === 'host') onlineMod.alReconectar(id); }
   });
@@ -2507,7 +2748,7 @@
       $('sel-msg').textContent = `${Personajes.info[id].nombre} ya lo tiene ${boton.querySelector('.quien').textContent}`;
       return;
     }
-    elegirEnSala({ personaje: id });
+    elegirEnSala({ personaje: id, skin: skinDe(id) });
   }
   $('sel-listo').addEventListener('click', () => {
     Sonido.sfx.click();
@@ -2579,7 +2820,7 @@
       // Los demás son "muñecos": se mueven con las fotos del anfitrión
       const e = {
         esMuneco: true, esHumano: d.num > 0, personaje: d.personaje, equipo: d.equipo,
-        malla: Personajes.crearModelo(d.personaje, COL[d.equipo]),
+        malla: Personajes.crearModelo(d.personaje, COL[d.equipo], d.skin || 'normal'),
         pos: new THREE.Vector3(d.ax, 0, d.az), vel: new THREE.Vector3(),
         dir: new THREE.Vector3(d.equipo === 'azul' ? 1 : -1, 0, 0), animT: 0
       };
@@ -2751,6 +2992,12 @@
         mostrarAviso(ev.tx, ev.sb, ev.eq);
         break;
       }
+      case 'emote':
+        mostrarEmote(e, ev.k);
+        break;
+      case 'meteoro':
+        lanzarMeteoro(ev.x, ev.z);
+        break;
       case 'poder':
         if (e === jugador) {
           Sonido.sfx.poder();
@@ -2769,6 +3016,7 @@
       else { jugador.entrada.x = jugador.entrada.z = 0; jugador.malla.position.set(jugador.pos.x, jugador.alturaExtra || 0, jugador.pos.z); }
     }
     clienteInterpolar(dt);
+    actualizarMeteoros(dt, false);
     combate.actualizar(dt);
     poderes.actualizar(dt, false, tiempoTotal);
     animarAros(dt);
@@ -2865,6 +3113,7 @@
     estado = 'fin';
     Sonido.sfx.bocina();
     const gano = m.ganador === jugador.equipo;
+    if (!cli.espectador) sumarOnline((m.tabla || []).find((f) => f.num === onlineMod.yo.num), gano);
     if (gano && !cli.espectador) desbloquear('victoria');
     $('fin-titulo').textContent = m.ganador ? (cli.espectador ? `¡GANA EL EQUIPO ${m.ganador.toUpperCase()}!` : gano ? '¡GANÓ TU EQUIPO!' : 'Ganó el otro equipo') : '¡EMPATE!';
     $('fin-titulo').className = m.ganador || '';
@@ -2910,9 +3159,29 @@
     }
   }
 
+  // Cámara lenta y "golpe seco" (el juego se congela un instante al pegar). Solo jugando solo:
+  // en el online o el Modo Fiesta cada pantalla iría a otro ritmo.
+  let tLenta = 0, factorLenta = 1, tCongelar = 0;
+  function ralentizar(seg, factor) {
+    if (online || modoFiesta) return;
+    tLenta = Math.max(tLenta, seg);
+    factorLenta = factor;
+  }
+  function golpeSeco(seg) {
+    if (online || modoFiesta) return;
+    tCongelar = Math.max(tCongelar, seg);
+  }
+  function escalaTiempo(dtReal) {
+    if (estado !== 'jugando' && estado !== 'canasta' && estado !== 'fin') { tLenta = tCongelar = 0; return 1; }
+    if (tCongelar > 0) { tCongelar -= dtReal; return 0.05; }
+    if (tLenta > 0) { tLenta -= dtReal; return factorLenta; }
+    return 1;
+  }
+
   function bucle() {
     requestAnimationFrame(bucle);
-    const dt = Math.min(clock.getDelta(), 0.05); // máximo 50 ms para evitar saltos
+    const dtReal = Math.min(clock.getDelta(), 0.05); // máximo 50 ms para evitar saltos
+    const dt = dtReal * escalaTiempo(dtReal);
     tiempoTotal += dt;
 
     animarFondo(dt);
@@ -2959,10 +3228,12 @@
       if (!modoFiesta) {
         actualizarApuntado();
         if (estado !== 'cuenta') moverJugador(dt);
+        if (!online) actualizarTutorial(dt);
       }
       bots.actualizar(dt, estado === 'jugando');
       combate.actualizar(dt);
       actualizarLava(dt);
+      actualizarMeteoros(dt, true);
       poderes.actualizar(dt, estado === 'jugando', tiempoTotal);
       actualizarBalon(dt);
       animarAros(dt);
@@ -3024,7 +3295,7 @@
   window.__juego = {
     get estado() { return estado; }, get mapa() { return mapa; }, get modoFiesta() { return modoFiesta; },
     partido, balon, jugador, combate, bots, poderes, aros,
-    get online() { return online; }, cli
+    get online() { return online; }, cli, get meteoros() { return meteoros; }
   };
 
   bucle();

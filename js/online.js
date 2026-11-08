@@ -37,7 +37,7 @@ function crearOnline(ctx) {
       t: 'inicio',
       mapa: ctx.mapaId(),
       ents: ents.map((e) => ({
-        nombre: e.nombre, personaje: e.personaje, equipo: e.equipo,
+        nombre: e.nombre, personaje: e.personaje, equipo: e.equipo, skin: e.skin || 'normal',
         num: e.jugadorFiesta ? e.jugadorFiesta.num : 0,   // 0 = bot
         vm: e.vidaMax, ax: e.aparicion.x, az: e.aparicion.z
       }))
